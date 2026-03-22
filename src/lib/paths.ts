@@ -5,10 +5,12 @@ import path from "node:path"
 const APP_DIR = path.join(os.homedir(), ".local", "share", "copilot-api")
 
 const GITHUB_TOKEN_PATH = path.join(APP_DIR, "github_token")
+const LOGS_DB_PATH = path.join(APP_DIR, "request_logs.db")
 
 export const PATHS = {
   APP_DIR,
   GITHUB_TOKEN_PATH,
+  LOGS_DB_PATH,
 }
 
 export async function ensurePaths(): Promise<void> {

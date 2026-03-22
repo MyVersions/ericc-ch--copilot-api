@@ -4,6 +4,8 @@ import consola from "consola"
 import { streamSSE } from "hono/streaming"
 
 import { awaitApproval } from "~/lib/approval"
+import { insertLog } from "~/lib/db"
+import { logRequest, markRequestLogged } from "~/lib/logger"
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
 import {
@@ -25,8 +27,23 @@ import { translateChunkToAnthropicEvents } from "./stream-translation"
 export async function handleCompletion(c: Context) {
   await checkRateLimit(state)
 
+  const startTime = Date.now()
+
   const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
   consola.debug("Anthropic request payload:", JSON.stringify(anthropicPayload))
+
+  // Extract device_id and session_id from metadata.user_id (JSON string)
+  let deviceId: string | undefined
+  let sessionId: string | undefined
+  try {
+    if (anthropicPayload.metadata?.user_id) {
+      const userMeta = JSON.parse(anthropicPayload.metadata.user_id) as { device_id?: string; session_id?: string }
+      deviceId = userMeta.device_id
+      sessionId = userMeta.session_id
+    }
+  } catch {
+    // user_id is not JSON — ignore
+  }
 
   const openAIPayload = translateToOpenAI(anthropicPayload)
   consola.debug(
@@ -50,10 +67,37 @@ export async function handleCompletion(c: Context) {
       "Translated Anthropic response:",
       JSON.stringify(anthropicResponse),
     )
+    const durationMs = Date.now() - startTime
+    const inputTokens = response.usage?.prompt_tokens ?? 0
+    const outputTokens = response.usage?.completion_tokens ?? 0
+    insertLog({
+      timestamp: startTime,
+      model: anthropicPayload.model,
+      device_id: deviceId,
+      session_id: sessionId,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      duration_ms: durationMs,
+      request_body: JSON.stringify(anthropicPayload),
+      response_body: JSON.stringify(anthropicResponse),
+    })
+    markRequestLogged(c.req.raw)
+    logRequest({
+      method: c.req.method,
+      path: c.req.path,
+      status: 200,
+      durationMs,
+      model: anthropicPayload.model,
+      deviceId,
+      sessionId,
+      inputTokens,
+      outputTokens,
+    })
     return c.json(anthropicResponse)
   }
 
   consola.debug("Streaming response from Copilot")
+  markRequestLogged(c.req.raw)
   return streamSSE(c, async (stream) => {
     const streamState: AnthropicStreamState = {
       messageStartSent: false,
@@ -61,6 +105,8 @@ export async function handleCompletion(c: Context) {
       contentBlockOpen: false,
       toolCalls: {},
     }
+
+    let lastUsage: ChatCompletionChunk["usage"] | undefined
 
     for await (const rawEvent of response) {
       consola.debug("Copilot raw stream event:", JSON.stringify(rawEvent))
@@ -73,6 +119,8 @@ export async function handleCompletion(c: Context) {
       }
 
       const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
+      if (chunk.usage) lastUsage = chunk.usage
+
       const events = translateChunkToAnthropicEvents(chunk, streamState)
 
       for (const event of events) {
@@ -83,6 +131,31 @@ export async function handleCompletion(c: Context) {
         })
       }
     }
+
+    const durationMs = Date.now() - startTime
+    const inputTokens = lastUsage?.prompt_tokens ?? 0
+    const outputTokens = lastUsage?.completion_tokens ?? 0
+    insertLog({
+      timestamp: startTime,
+      model: anthropicPayload.model,
+      device_id: deviceId,
+      session_id: sessionId,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      duration_ms: durationMs,
+      request_body: JSON.stringify(anthropicPayload),
+    })
+    logRequest({
+      method: c.req.method,
+      path: c.req.path,
+      status: 200,
+      durationMs,
+      model: anthropicPayload.model,
+      deviceId,
+      sessionId,
+      inputTokens,
+      outputTokens,
+    })
   })
 }
 

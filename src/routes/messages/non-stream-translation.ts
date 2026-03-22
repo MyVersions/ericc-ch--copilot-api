@@ -8,6 +8,8 @@ import {
   type ToolCall,
 } from "~/services/copilot/create-chat-completions"
 
+import { state } from "~/lib/state"
+
 import {
   type AnthropicAssistantContentBlock,
   type AnthropicAssistantMessage,
@@ -29,13 +31,20 @@ import { mapOpenAIStopReasonToAnthropic } from "./utils"
 export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
 ): ChatCompletionsPayload {
+  const translatedModel = translateModelName(payload.model)
+  const modelInfo = state.models?.data.find((m) => m.id === translatedModel)
+  const maxOutputTokens = modelInfo?.capabilities.limits.max_output_tokens
+
   return {
-    model: translateModelName(payload.model),
+    model: translatedModel,
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
       payload.system,
     ),
-    max_tokens: payload.max_tokens,
+    max_tokens:
+      maxOutputTokens ?
+        Math.min(payload.max_tokens, maxOutputTokens)
+      : payload.max_tokens,
     stop: payload.stop_sequences,
     stream: payload.stream,
     temperature: payload.temperature,
@@ -47,13 +56,37 @@ export function translateToOpenAI(
 }
 
 function translateModelName(model: string): string {
-  // Subagent requests use a specific model number which Copilot doesn't support
-  if (model.startsWith("claude-sonnet-4-")) {
-    return model.replace(/^claude-sonnet-4-.*/, "claude-sonnet-4")
-  } else if (model.startsWith("claude-opus-")) {
-    return model.replace(/^claude-opus-4-.*/, "claude-opus-4")
+  const models = state.models?.data
+
+  if (models) {
+    // Exact match — model ID is already valid for Copilot
+    if (models.some((m) => m.id === model)) return model
+
+    // Normalize input: replace traços with pontos to match available models format
+    // "claude-sonnet-4-6" → "claude-sonnet-4.6"
+    const normalizedModel = model.replace(/-(\d+)$/, ".$1")
+    if (normalizedModel !== model && models.some((m) => m.id === normalizedModel)) {
+      return normalizedModel
+    }
+
+    // Family match — find an available model with same version family prefix
+    // e.g. "claude-sonnet-4-6" or "claude-sonnet-4.6" → find "claude-sonnet-4.6"
+    for (const familyPrefix of ["claude-sonnet-4", "claude-opus-4", "claude-haiku-4"]) {
+      if (
+        model.startsWith(`${familyPrefix}-`)
+        || model.startsWith(`${familyPrefix}.`)
+      ) {
+        const match = models.find(
+          (m) =>
+            m.id.startsWith(`${familyPrefix}.`) || m.id.startsWith(`${familyPrefix}-`),
+        )
+        if (match) return match.id
+      }
+    }
   }
-  return model
+
+  // Fallback: normalize format when models list is unavailable
+  return model.replace(/-(\d+)$/, ".$1")
 }
 
 function translateAnthropicMessagesToOpenAI(

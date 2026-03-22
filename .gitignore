@@ -3,6 +3,10 @@ node_modules/
 
 # local env
 *.local
+.env
+
+# runtime data
+volumes/
 
 # aider
 .aider*
