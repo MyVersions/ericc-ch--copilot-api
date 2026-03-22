@@ -64,12 +64,13 @@ export async function handleCompletion(c: Context) {
   }
 
   const response = await createChatCompletions(payload)
+  const { result, requestId, isAgentCall } = response
 
-  if (isNonStreaming(response)) {
-    consola.debug("Non-streaming response:", JSON.stringify(response))
+  if (isNonStreaming(result)) {
+    consola.debug("Non-streaming response:", JSON.stringify(result))
     const durationMs = Date.now() - startTime
-    const inputTokens = response.usage?.prompt_tokens ?? 0
-    const outputTokens = response.usage?.completion_tokens ?? 0
+    const inputTokens = result.usage?.prompt_tokens ?? 0
+    const outputTokens = result.usage?.completion_tokens ?? 0
     insertLog({
       timestamp: startTime,
       model: payload.model,
@@ -79,7 +80,16 @@ export async function handleCompletion(c: Context) {
       output_tokens: outputTokens,
       duration_ms: durationMs,
       request_body: JSON.stringify(payload),
-      response_body: JSON.stringify(response),
+      response_body: JSON.stringify(result),
+      finish_reason: result.choices[0]?.finish_reason ?? null,
+      stream: payload.stream ?? false,
+      is_agent_call: isAgentCall,
+      cached_tokens: result.usage?.prompt_tokens_details?.cached_tokens ?? null,
+      request_id: requestId,
+      route: "openai",
+      tools_count: payload.tools?.length ?? 0,
+      accepted_prediction_tokens: null,
+      rejected_prediction_tokens: null,
     })
     const requestSizeKb = JSON.stringify(payload).length / 1024
     markRequestLogged(c.req.raw)
@@ -94,7 +104,7 @@ export async function handleCompletion(c: Context) {
       inputTokens,
       outputTokens,
     })
-    return c.json(response)
+    return c.json(result)
   }
 
   consola.debug("Streaming response")
@@ -103,8 +113,9 @@ export async function handleCompletion(c: Context) {
   return streamSSE(c, async (stream) => {
     let lastUsage: ChatCompletionChunk["usage"] | undefined
     let accumulatedContent = ""
+    let finishReason: string | null = null
 
-    for await (const chunk of response) {
+    for await (const chunk of result) {
       consola.debug("Streaming chunk:", JSON.stringify(chunk))
 
       if (chunk.data && chunk.data !== "[DONE]") {
@@ -112,6 +123,7 @@ export async function handleCompletion(c: Context) {
           const parsed = JSON.parse(chunk.data) as ChatCompletionChunk
           if (parsed.usage) lastUsage = parsed.usage
           accumulatedContent += parsed.choices[0]?.delta?.content ?? ""
+          if (parsed.choices[0]?.finish_reason) finishReason = parsed.choices[0].finish_reason
         } catch {
           // ignore malformed chunks
         }
@@ -133,6 +145,15 @@ export async function handleCompletion(c: Context) {
       duration_ms: durationMs,
       request_body: JSON.stringify(payload),
       response_body: accumulatedContent,
+      finish_reason: finishReason,
+      stream: true,
+      is_agent_call: isAgentCall,
+      cached_tokens: lastUsage?.prompt_tokens_details?.cached_tokens ?? null,
+      request_id: requestId,
+      route: "openai",
+      tools_count: payload.tools?.length ?? 0,
+      accepted_prediction_tokens: lastUsage?.completion_tokens_details?.accepted_prediction_tokens ?? null,
+      rejected_prediction_tokens: lastUsage?.completion_tokens_details?.rejected_prediction_tokens ?? null,
     })
     logRequest({
       method: c.req.method,
@@ -149,5 +170,5 @@ export async function handleCompletion(c: Context) {
 }
 
 const isNonStreaming = (
-  response: Awaited<ReturnType<typeof createChatCompletions>>,
-): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
+  result: Awaited<ReturnType<typeof createChatCompletions>>["result"],
+): result is ChatCompletionResponse => Object.hasOwn(result, "choices")

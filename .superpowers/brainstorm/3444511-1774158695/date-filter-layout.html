@@ -1,0 +1,85 @@
+<h2>Como você prefere o seletor de período?</h2>
+<p class="subtitle">O filtro de data aparece no topo do dashboard e controla todos os gráficos e métricas</p>
+
+<div class="cards">
+  <div class="card" data-choice="pills" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:16px;border-radius:8px;font-family:monospace">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span style="background:#238636;color:#fff;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">Hoje</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">Ontem</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">7 dias</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">15 dias</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">30 dias</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">Mês atual</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">Mês ant.</span>
+          <span style="background:#21262d;color:#8b949e;padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer">YTD</span>
+        </div>
+        <div style="margin-top:12px;background:#161b22;border-radius:6px;padding:10px">
+          <div style="color:#8b949e;font-size:12px">📊 Mostrando dados de hoje · 22/03/2026</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Pills (botões arredondados)</h3>
+      <p>Todos os períodos visíveis de uma vez. Fácil de trocar rapidamente. Ocupa uma linha inteira no topo.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="dropdown" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:16px;border-radius:8px;font-family:monospace">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="color:#c9d1d9;font-size:14px">Período:</span>
+          <div style="background:#21262d;color:#c9d1d9;padding:7px 14px;border-radius:6px;border:1px solid #30363d;font-size:13px;display:flex;align-items:center;gap:8px;cursor:pointer">
+            📅 Últimos 30 dias
+            <span style="color:#8b949e">▾</span>
+          </div>
+          <span style="color:#8b949e;font-size:12px">01/02/2026 – 22/03/2026</span>
+        </div>
+        <div style="margin-top:12px;background:#21262d;border:1px solid #30363d;border-radius:6px;padding:8px;max-width:220px">
+          <div style="color:#8b949e;font-size:11px;padding:4px 8px;letter-spacing:.05em">RÁPIDO</div>
+          <div style="color:#c9d1d9;font-size:13px;padding:5px 8px;cursor:pointer">Hoje</div>
+          <div style="color:#c9d1d9;font-size:13px;padding:5px 8px;cursor:pointer">Ontem</div>
+          <div style="color:#c9d1d9;font-size:13px;padding:5px 8px;cursor:pointer">Últimos 7 dias</div>
+          <div style="background:#161b22;color:#58a6ff;font-size:13px;padding:5px 8px;border-radius:4px;cursor:pointer">✓ Últimos 30 dias</div>
+          <div style="color:#c9d1d9;font-size:13px;padding:5px 8px;cursor:pointer">Mês atual</div>
+          <div style="color:#c9d1d9;font-size:13px;padding:5px 8px;cursor:pointer">Mês anterior</div>
+          <div style="color:#c9d1d9;font-size:13px;padding:5px 8px;cursor:pointer">YTD</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Dropdown compacto</h3>
+      <p>Economiza espaço, mais elegante. Lista completa ao clicar. Mostra intervalo de datas ao lado.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="segmented" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:16px;border-radius:8px;font-family:monospace">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;background:#21262d;border-radius:8px;padding:3px;border:1px solid #30363d">
+            <span style="background:#238636;color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer">Hoje</span>
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">Ontem</span>
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">7d</span>
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">15d</span>
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">30d</span>
+          </div>
+          <div style="display:flex;background:#21262d;border-radius:8px;padding:3px;border:1px solid #30363d">
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">Mês atual</span>
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">Mês ant.</span>
+            <span style="color:#8b949e;padding:5px 10px;font-size:12px;cursor:pointer">YTD</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;background:#161b22;border-radius:6px;padding:10px">
+          <div style="color:#8b949e;font-size:12px">📊 22/03/2026</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Segmented controls (2 grupos)</h3>
+      <p>Agrupa "dias recentes" e "meses/YTD" em dois blocos visuais distintos. Organizado, mas ocupa mais largura.</p>
+    </div>
+  </div>
+</div>

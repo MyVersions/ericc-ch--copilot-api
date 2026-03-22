@@ -1,0 +1,106 @@
+<h2>Layout de cards atualizado</h2>
+<p class="subtitle">Linha 1: métricas gerais · Linha 2: custo estimado por device (dinâmica)</p>
+
+<div class="mockup">
+  <div class="mockup-header">Dashboard — Summary Cards</div>
+  <div class="mockup-body" style="font-family:sans-serif;background:#0d1117;padding:16px;font-size:12px">
+
+    <!-- Filtro -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="display:flex;background:#21262d;border-radius:8px;padding:3px;border:1px solid #30363d">
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">Hoje</span>
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">Ontem</span>
+        <span style="background:#238636;color:#fff;padding:4px 9px;border-radius:6px;font-size:11px">7d</span>
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">15d</span>
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">30d</span>
+      </div>
+      <div style="display:flex;background:#21262d;border-radius:8px;padding:3px;border:1px solid #30363d">
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">Mês atual</span>
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">Mês ant.</span>
+        <span style="color:#8b949e;padding:4px 9px;font-size:11px">YTD</span>
+      </div>
+      <span style="color:#8b949e;font-size:11px">16/03 – 22/03/2026</span>
+    </div>
+
+    <!-- Linha 1: métricas gerais (6 cards) -->
+    <div style="color:#8b949e;font-size:10px;letter-spacing:.08em;margin-bottom:6px">RESUMO DO PERÍODO</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="color:#8b949e;font-size:9px;margin-bottom:5px">REQUESTS</div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">1.247</div>
+        <div style="color:#3fb950;font-size:9px;margin-top:3px">↑ 12%</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="color:#8b949e;font-size:9px;margin-bottom:5px">INPUT TOKENS</div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">4.2M</div>
+        <div style="color:#f85149;font-size:9px;margin-top:3px">↓ 3%</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="color:#8b949e;font-size:9px;margin-bottom:5px">OUTPUT TOKENS</div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">892K</div>
+        <div style="color:#3fb950;font-size:9px;margin-top:3px">↑ 8%</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="color:#8b949e;font-size:9px;margin-bottom:5px">CUSTO ESTIMADO</div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">$2.34</div>
+        <div style="color:#3fb950;font-size:9px;margin-top:3px">↑ 5%</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="color:#8b949e;font-size:9px;margin-bottom:5px">DURAÇÃO MÉDIA</div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">3.2s</div>
+        <div style="color:#8b949e;font-size:9px;margin-top:3px">— igual</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="color:#8b949e;font-size:9px;margin-bottom:5px">SESSIONS</div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">38</div>
+        <div style="color:#3fb950;font-size:9px;margin-top:3px">↑ 6%</div>
+      </div>
+    </div>
+
+    <!-- Linha 2: custo por device (dinâmica) -->
+    <div style="color:#8b949e;font-size:10px;letter-spacing:.08em;margin-bottom:6px">CUSTO ESTIMADO POR DEVICE</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <span style="font-size:14px">💻</span>
+          <span style="color:#8b949e;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">work-macbook</span>
+        </div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">$1.20</div>
+        <div style="color:#3fb950;font-size:9px;margin-top:3px">↑ 8% · 612 req</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <span style="font-size:14px">💻</span>
+          <span style="color:#8b949e;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">home-pc</span>
+        </div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">$0.80</div>
+        <div style="color:#f85149;font-size:9px;margin-top:3px">↓ 3% · 398 req</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <span style="font-size:14px">💻</span>
+          <span style="color:#8b949e;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">vps-01</span>
+        </div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">$0.34</div>
+        <div style="color:#8b949e;font-size:9px;margin-top:3px">— igual · 237 req</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px;opacity:0.4">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <span style="font-size:14px">💻</span>
+          <span style="color:#8b949e;font-size:9px">sem nome (a1b2c3d4)</span>
+        </div>
+        <div style="color:#c9d1d9;font-size:16px;font-weight:600">—</div>
+        <div style="color:#8b949e;font-size:9px;margin-top:3px">sem dados no período</div>
+      </div>
+    </div>
+
+    <!-- Gráficos e breakdown (placeholders) -->
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px;text-align:center;color:#8b949e;font-size:11px">
+      📈 Gráficos — próxima seção
+    </div>
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;text-align:center;color:#8b949e;font-size:11px">
+      📋 Breakdown por Device / Session — próxima seção
+    </div>
+
+  </div>
+</div>

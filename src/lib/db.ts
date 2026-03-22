@@ -14,6 +14,15 @@ export interface LogEntry {
   duration_ms: number
   request_body?: string
   response_body?: string
+  finish_reason?: string | null
+  stream?: boolean | null
+  is_agent_call?: boolean | null
+  cached_tokens?: number | null
+  request_id?: string | null
+  route?: string | null
+  tools_count?: number | null
+  accepted_prediction_tokens?: number | null
+  rejected_prediction_tokens?: number | null
 }
 
 export interface DailyStats {
@@ -50,12 +59,33 @@ export function getDb(): Database {
       output_tokens INTEGER NOT NULL DEFAULT 0,
       duration_ms   INTEGER NOT NULL DEFAULT 0,
       request_body  TEXT,
-      response_body TEXT
+      response_body TEXT,
+      finish_reason TEXT,
+      stream        INTEGER,
+      is_agent_call INTEGER,
+      cached_tokens INTEGER,
+      request_id    TEXT,
+      route         TEXT,
+      tools_count   INTEGER,
+      accepted_prediction_tokens  INTEGER,
+      rejected_prediction_tokens  INTEGER
     )
   `)
 
   // Add new columns if the table already existed with the old schema
-  for (const col of ["device_id TEXT", "session_id TEXT"]) {
+  for (const col of [
+    "device_id TEXT",
+    "session_id TEXT",
+    "finish_reason TEXT",
+    "stream INTEGER",
+    "is_agent_call INTEGER",
+    "cached_tokens INTEGER",
+    "request_id TEXT",
+    "route TEXT",
+    "tools_count INTEGER",
+    "accepted_prediction_tokens INTEGER",
+    "rejected_prediction_tokens INTEGER",
+  ]) {
     try {
       db.run(`ALTER TABLE request_logs ADD COLUMN ${col}`)
     } catch {
@@ -91,8 +121,9 @@ export function insertLog(entry: LogEntry): void {
     getDb()
       .prepare(
         `INSERT INTO request_logs
-          (timestamp, model, device_id, session_id, input_tokens, output_tokens, duration_ms, request_body, response_body)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (timestamp, model, device_id, session_id, input_tokens, output_tokens, duration_ms, request_body, response_body,
+           finish_reason, stream, is_agent_call, cached_tokens, request_id, route, tools_count, accepted_prediction_tokens, rejected_prediction_tokens)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         entry.timestamp,
@@ -104,6 +135,15 @@ export function insertLog(entry: LogEntry): void {
         entry.duration_ms,
         entry.request_body ?? null,
         entry.response_body ?? null,
+        entry.finish_reason ?? null,
+        entry.stream == null ? null : entry.stream ? 1 : 0,
+        entry.is_agent_call == null ? null : entry.is_agent_call ? 1 : 0,
+        entry.cached_tokens ?? null,
+        entry.request_id ?? null,
+        entry.route ?? null,
+        entry.tools_count ?? null,
+        entry.accepted_prediction_tokens ?? null,
+        entry.rejected_prediction_tokens ?? null,
       )
   } catch (error) {
     consola.warn("Failed to insert log entry:", error)

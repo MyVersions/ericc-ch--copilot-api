@@ -1,5 +1,6 @@
 import consola from "consola"
 import { events } from "fetch-event-stream"
+import { randomUUID } from "node:crypto"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
@@ -22,9 +23,11 @@ export const createChatCompletions = async (
     ["assistant", "tool"].includes(msg.role),
   )
 
+  const requestId = randomUUID()
+
   // Build headers and add X-Initiator
   const headers: Record<string, string> = {
-    ...copilotHeaders(state, enableVision),
+    ...copilotHeaders(state, enableVision, requestId),
     "X-Initiator": isAgentCall ? "agent" : "user",
   }
 
@@ -40,10 +43,10 @@ export const createChatCompletions = async (
   }
 
   if (payload.stream) {
-    return events(response)
+    return { result: events(response), requestId, isAgentCall }
   }
 
-  return (await response.json()) as ChatCompletionResponse
+  return { result: (await response.json()) as ChatCompletionResponse, requestId, isAgentCall }
 }
 
 // Streaming types

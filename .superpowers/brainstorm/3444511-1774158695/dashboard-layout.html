@@ -1,0 +1,91 @@
+<h2>Layout geral do dashboard</h2>
+<p class="subtitle">Como os elementos se organizam na página — do topo para baixo</p>
+
+<div class="mockup">
+  <div class="mockup-header">Dashboard — visão geral (período: Últimos 7 dias)</div>
+  <div class="mockup-body" style="font-family:sans-serif;background:#0d1117;padding:16px;font-size:12px">
+
+    <!-- Nav -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #21262d">
+      <span style="color:#c9d1d9;font-weight:600;font-size:14px">📊 copilot-api dashboard</span>
+      <div style="display:flex;gap:12px">
+        <a style="color:#8b949e;text-decoration:none;font-size:12px">Devices →</a>
+        <a style="color:#8b949e;text-decoration:none;font-size:12px">SQLite →</a>
+      </div>
+    </div>
+
+    <!-- Filtro de período -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+      <span style="color:#8b949e;font-size:11px">PERÍODO</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;background:#21262d;border-radius:8px;padding:3px;border:1px solid #30363d">
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">Hoje</span>
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">Ontem</span>
+          <span style="background:#238636;color:#fff;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer">7d</span>
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">15d</span>
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">30d</span>
+        </div>
+        <div style="display:flex;background:#21262d;border-radius:8px;padding:3px;border:1px solid #30363d">
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">Mês atual</span>
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">Mês ant.</span>
+          <span style="color:#8b949e;padding:4px 9px;font-size:11px;cursor:pointer">YTD</span>
+        </div>
+      </div>
+      <span style="color:#8b949e;font-size:11px">16/03 – 22/03/2026</span>
+    </div>
+
+    <!-- Cards de resumo (linha 1) -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">REQUESTS</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">1.247</div>
+        <div style="color:#3fb950;font-size:10px;margin-top:4px">↑ 12% vs período ant.</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">INPUT TOKENS</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">4.2M</div>
+        <div style="color:#f85149;font-size:10px;margin-top:4px">↓ 3% vs período ant.</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">OUTPUT TOKENS</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">892K</div>
+        <div style="color:#3fb950;font-size:10px;margin-top:4px">↑ 8% vs período ant.</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">CUSTO ESTIMADO</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">$2.34</div>
+        <div style="color:#3fb950;font-size:10px;margin-top:4px">↑ 5% vs período ant.</div>
+      </div>
+    </div>
+
+    <!-- Cards de resumo (linha 2) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">DURAÇÃO MÉDIA</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">3.2s</div>
+        <div style="color:#8b949e;font-size:10px;margin-top:4px">— igual ao período ant.</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">DEVICES ATIVOS</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">4</div>
+        <div style="color:#3fb950;font-size:10px;margin-top:4px">↑ 1 vs período ant.</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">
+        <div style="color:#8b949e;font-size:10px;margin-bottom:6px">MODELOS USADOS</div>
+        <div style="color:#c9d1d9;font-size:18px;font-weight:600">3</div>
+        <div style="color:#8b949e;font-size:10px;margin-top:4px">claude-sonnet, gpt-4o, ...</div>
+      </div>
+    </div>
+
+    <!-- Área de gráficos (placeholder) -->
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px;text-align:center;color:#8b949e;font-size:11px">
+      📈 Gráficos (detalhados na próxima seção)
+    </div>
+
+    <!-- Breakdown por device/session (placeholder) -->
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;text-align:center;color:#8b949e;font-size:11px">
+      📋 Breakdown por Device / Session (detalhado na próxima seção)
+    </div>
+
+  </div>
+</div>

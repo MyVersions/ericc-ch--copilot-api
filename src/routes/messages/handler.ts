@@ -56,20 +56,21 @@ export async function handleCompletion(c: Context) {
   }
 
   const response = await createChatCompletions(openAIPayload)
+  const { result, requestId, isAgentCall } = response
 
-  if (isNonStreaming(response)) {
+  if (isNonStreaming(result)) {
     consola.debug(
       "Non-streaming response from Copilot:",
-      JSON.stringify(response).slice(-400),
+      JSON.stringify(result).slice(-400),
     )
-    const anthropicResponse = translateToAnthropic(response)
+    const anthropicResponse = translateToAnthropic(result)
     consola.debug(
       "Translated Anthropic response:",
       JSON.stringify(anthropicResponse),
     )
     const durationMs = Date.now() - startTime
-    const inputTokens = response.usage?.prompt_tokens ?? 0
-    const outputTokens = response.usage?.completion_tokens ?? 0
+    const inputTokens = result.usage?.prompt_tokens ?? 0
+    const outputTokens = result.usage?.completion_tokens ?? 0
     insertLog({
       timestamp: startTime,
       model: anthropicPayload.model,
@@ -80,6 +81,15 @@ export async function handleCompletion(c: Context) {
       duration_ms: durationMs,
       request_body: JSON.stringify(anthropicPayload),
       response_body: JSON.stringify(anthropicResponse),
+      finish_reason: result.choices[0]?.finish_reason ?? null,
+      stream: anthropicPayload.stream ?? false,
+      is_agent_call: isAgentCall,
+      cached_tokens: result.usage?.prompt_tokens_details?.cached_tokens ?? null,
+      request_id: requestId,
+      route: "anthropic",
+      tools_count: openAIPayload.tools?.length ?? 0,
+      accepted_prediction_tokens: null,
+      rejected_prediction_tokens: null,
     })
     markRequestLogged(c.req.raw)
     logRequest({
@@ -109,8 +119,9 @@ export async function handleCompletion(c: Context) {
 
     let lastUsage: ChatCompletionChunk["usage"] | undefined
     let accumulatedContent = ""
+    let finishReason: string | null = null
 
-    for await (const rawEvent of response) {
+    for await (const rawEvent of result) {
       consola.debug("Copilot raw stream event:", JSON.stringify(rawEvent))
       if (rawEvent.data === "[DONE]") {
         break
@@ -122,6 +133,7 @@ export async function handleCompletion(c: Context) {
 
       const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
       if (chunk.usage) lastUsage = chunk.usage
+      if (chunk.choices[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason
 
       const events = translateChunkToAnthropicEvents(chunk, streamState)
 
@@ -150,6 +162,15 @@ export async function handleCompletion(c: Context) {
       duration_ms: durationMs,
       request_body: JSON.stringify(anthropicPayload),
       response_body: accumulatedContent,
+      finish_reason: finishReason,
+      stream: true,
+      is_agent_call: isAgentCall,
+      cached_tokens: lastUsage?.prompt_tokens_details?.cached_tokens ?? null,
+      request_id: requestId,
+      route: "anthropic",
+      tools_count: openAIPayload.tools?.length ?? 0,
+      accepted_prediction_tokens: lastUsage?.completion_tokens_details?.accepted_prediction_tokens ?? null,
+      rejected_prediction_tokens: lastUsage?.completion_tokens_details?.rejected_prediction_tokens ?? null,
     })
     logRequest({
       method: c.req.method,
@@ -166,5 +187,5 @@ export async function handleCompletion(c: Context) {
 }
 
 const isNonStreaming = (
-  response: Awaited<ReturnType<typeof createChatCompletions>>,
-): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
+  result: Awaited<ReturnType<typeof createChatCompletions>>["result"],
+): result is ChatCompletionResponse => Object.hasOwn(result, "choices")
