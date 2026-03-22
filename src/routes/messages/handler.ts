@@ -87,9 +87,9 @@ export async function handleCompletion(c: Context) {
       path: c.req.path,
       status: 200,
       durationMs,
+      requestSizeKb: JSON.stringify(anthropicPayload).length / 1024,
       model: anthropicPayload.model,
       deviceId,
-      sessionId,
       inputTokens,
       outputTokens,
     })
@@ -97,6 +97,7 @@ export async function handleCompletion(c: Context) {
   }
 
   consola.debug("Streaming response from Copilot")
+  const requestSizeKb = JSON.stringify(anthropicPayload).length / 1024
   markRequestLogged(c.req.raw)
   return streamSSE(c, async (stream) => {
     const streamState: AnthropicStreamState = {
@@ -107,6 +108,7 @@ export async function handleCompletion(c: Context) {
     }
 
     let lastUsage: ChatCompletionChunk["usage"] | undefined
+    let accumulatedContent = ""
 
     for await (const rawEvent of response) {
       consola.debug("Copilot raw stream event:", JSON.stringify(rawEvent))
@@ -125,6 +127,9 @@ export async function handleCompletion(c: Context) {
 
       for (const event of events) {
         consola.debug("Translated Anthropic event:", JSON.stringify(event))
+        if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+          accumulatedContent += event.delta.text ?? ""
+        }
         await stream.writeSSE({
           event: event.type,
           data: JSON.stringify(event),
@@ -144,15 +149,16 @@ export async function handleCompletion(c: Context) {
       output_tokens: outputTokens,
       duration_ms: durationMs,
       request_body: JSON.stringify(anthropicPayload),
+      response_body: accumulatedContent,
     })
     logRequest({
       method: c.req.method,
       path: c.req.path,
       status: 200,
       durationMs,
+      requestSizeKb,
       model: anthropicPayload.model,
       deviceId,
-      sessionId,
       inputTokens,
       outputTokens,
     })

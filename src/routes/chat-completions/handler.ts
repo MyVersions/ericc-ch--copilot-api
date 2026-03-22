@@ -81,15 +81,16 @@ export async function handleCompletion(c: Context) {
       request_body: JSON.stringify(payload),
       response_body: JSON.stringify(response),
     })
+    const requestSizeKb = JSON.stringify(payload).length / 1024
     markRequestLogged(c.req.raw)
     logRequest({
       method: c.req.method,
       path: c.req.path,
       status: 200,
       durationMs,
+      requestSizeKb,
       model: payload.model,
       deviceId,
-      sessionId,
       inputTokens,
       outputTokens,
     })
@@ -97,6 +98,7 @@ export async function handleCompletion(c: Context) {
   }
 
   consola.debug("Streaming response")
+  const requestSizeKb = JSON.stringify(payload).length / 1024
   markRequestLogged(c.req.raw)
   return streamSSE(c, async (stream) => {
     let lastUsage: ChatCompletionChunk["usage"] | undefined
@@ -137,9 +139,9 @@ export async function handleCompletion(c: Context) {
       path: c.req.path,
       status: 200,
       durationMs,
+      requestSizeKb,
       model: payload.model,
       deviceId,
-      sessionId,
       inputTokens,
       outputTokens,
     })

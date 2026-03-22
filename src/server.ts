@@ -4,6 +4,7 @@ import { cors } from "hono/cors"
 import { requestLogger } from "./lib/logger"
 import { completionRoutes } from "./routes/chat-completions/route"
 import { dashboardRoutes } from "./routes/dashboard/route"
+import { devicesRoutes } from "./routes/devices/route"
 import { sqliteRoutes } from "./routes/sqlite/route"
 import { embeddingRoutes } from "./routes/embeddings/route"
 import { messageRoutes } from "./routes/messages/route"
@@ -33,4 +34,5 @@ server.route("/v1/embeddings", embeddingRoutes)
 server.route("/v1/messages", messageRoutes)
 
 server.route("/dashboard", dashboardRoutes)
+server.route("/devices", devicesRoutes)
 server.route("/sqlite", sqliteRoutes)

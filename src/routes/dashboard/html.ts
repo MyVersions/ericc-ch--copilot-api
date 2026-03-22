@@ -108,10 +108,75 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     .num { color: #e6edf3; font-variant-numeric: tabular-nums; }
     .muted { color: #484f58; }
-  </style>
+
+    .devices-section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      margin-top: 28px;
+      overflow: hidden;
+    }
+
+    .devices-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .device-form {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #30363d;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .device-form input {
+      background: #0d1117;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .device-form input:focus { border-color: #58a6ff; }
+    .device-form input[name="device_id"] { flex: 2; min-width: 180px; font-family: monospace; }
+    .device-form input[name="name"] { flex: 1; min-width: 120px; }
+
+    .btn-save {
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-save:hover { background: #2ea043; }
+
+    .btn-remove {
+      background: transparent;
+      color: #f85149;
+      border: 1px solid #f8514933;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-remove:hover { background: #f8514922; border-color: #f85149; }
+</style>
 </head>
 <body>
-  <h1>Copilot API <span>/ Dashboard</span></h1>
+  <h1>Copilot API <span>/ Dashboard</span> <a href="/devices" style="font-size:13px;font-weight:400;color:#8b949e;text-decoration:none;margin-left:12px;border:1px solid #30363d;border-radius:6px;padding:3px 10px;transition:color 0.15s" onmouseover="this.style.color='#e6edf3'" onmouseout="this.style.color='#8b949e'">Devices →</a></h1>
 
   <div class="cards">
     <div class="card"><div class="label">Total de requests</div><div class="value" id="total-requests">—</div></div>
@@ -134,8 +199,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       <thead>
         <tr>
           <th>Horário</th>
-          <th>Chamador</th>
-          <th>Rota</th>
+          <th>Device</th>
           <th>Modelo</th>
           <th>Entrada</th>
           <th>Saída</th>
@@ -143,13 +207,37 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         </tr>
       </thead>
       <tbody id="requests-tbody">
-        <tr><td colspan="7" style="text-align:center;color:#484f58;padding:24px;">Carregando…</td></tr>
+        <tr><td colspan="6" style="text-align:center;color:#484f58;padding:24px;">Carregando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="devices-section">
+    <div class="devices-header">
+      <div class="section-title" style="margin:0">Devices</div>
+    </div>
+    <form class="device-form" onsubmit="saveDevice(event)">
+      <input name="device_id" placeholder="device_id (hash)" autocomplete="off" required />
+      <input name="name" placeholder="Nome amigável" autocomplete="off" required />
+      <button type="submit" class="btn-save">Salvar</button>
+    </form>
+    <table>
+      <thead>
+        <tr>
+          <th>Device ID</th>
+          <th>Nome</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="devices-tbody">
+        <tr><td colspan="3" style="text-align:center;color:#484f58;padding:16px;">Carregando…</td></tr>
       </tbody>
     </table>
   </div>
 
   <script>
     let chart = null
+    let deviceMap = new Map() // device_id → name
 
     function esc(str) {
       const div = document.createElement('div')
@@ -174,15 +262,17 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms'
     }
 
+    function deviceLabel(device_id) {
+      if (!device_id) return null
+      return deviceMap.get(device_id) ?? device_id.slice(0, 8)
+    }
+
     function createRow(r) {
       const tr = document.createElement('tr')
 
       const cells = [
         { text: fmtDate(r.timestamp), cls: 'num' },
-        { text: r.caller || r.client_ip || null, muted: true },
-        { html: r.route === '/v1/messages'
-            ? '<span class="tag tag-anth">anthropic</span>'
-            : '<span class="tag tag-openai">openai</span>' },
+        { text: deviceLabel(r.device_id), muted: !deviceMap.has(r.device_id) },
         { html: '<span class="tag tag-model">' + esc(r.model) + '</span>' },
         { text: fmt(r.input_tokens), cls: 'num' },
         { text: fmt(r.output_tokens), cls: 'num' },
@@ -196,6 +286,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           td.innerHTML = cell.html
         } else if (cell.text != null) {
           td.textContent = cell.text
+          if (cell.muted) td.className = (td.className + ' muted').trim()
         } else {
           td.textContent = '—'
           td.className = 'muted'
@@ -263,7 +354,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         if (!data.requests.length) {
           const tr = document.createElement('tr')
           const td = document.createElement('td')
-          td.colSpan = 7
+          td.colSpan = 6
           td.textContent = 'Nenhuma requisição registrada ainda.'
           td.style.cssText = 'text-align:center;color:#484f58;padding:24px'
           tr.appendChild(td)
@@ -279,14 +370,69 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       }
     }
 
-    Promise.all([loadStats(), loadRequests()])
+    async function loadDevices() {
+      try {
+        const res = await fetch('/dashboard/api/devices')
+        const data = await res.json()
+        deviceMap = new Map(data.devices.map(d => [d.device_id, d.name]))
+
+        const tbody = document.getElementById('devices-tbody')
+        tbody.replaceChildren()
+
+        if (!data.devices.length) {
+          const tr = document.createElement('tr')
+          const td = document.createElement('td')
+          td.colSpan = 3
+          td.textContent = 'Nenhum device cadastrado.'
+          td.style.cssText = 'text-align:center;color:#484f58;padding:16px'
+          tr.appendChild(td)
+          tbody.appendChild(tr)
+          return
+        }
+
+        for (const d of data.devices) {
+          const tr = document.createElement('tr')
+          tr.innerHTML =
+            '<td style="font-family:monospace;font-size:12px;color:#8b949e">' + esc(d.device_id) + '</td>' +
+            '<td>' + esc(d.name) + '</td>' +
+            '<td><button class="btn-remove" onclick="removeDevice(' + JSON.stringify(d.device_id) + ')">Remover</button></td>'
+          tbody.appendChild(tr)
+        }
+      } catch (e) {
+        console.error('Erro ao carregar devices:', e)
+      }
+    }
+
+    async function saveDevice(event) {
+      event.preventDefault()
+      const form = event.target
+      const device_id = form.device_id.value.trim()
+      const name = form.name.value.trim()
+      if (!device_id || !name) return
+      await fetch('/dashboard/api/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id, name }),
+      })
+      form.reset()
+      await loadDevices()
+      await loadRequests()
+    }
+
+    async function removeDevice(device_id) {
+      await fetch('/dashboard/api/devices/' + encodeURIComponent(device_id), { method: 'DELETE' })
+      await loadDevices()
+      await loadRequests()
+    }
+
+    Promise.all([loadStats(), loadDevices().then(loadRequests)])
 
     let countdown = 30
     setInterval(() => {
       countdown--
       if (countdown <= 0) {
         countdown = 30
-        loadRequests()
+        loadDevices().then(loadRequests)
       }
       document.getElementById('refresh-note').textContent = 'Atualizando em ' + countdown + 's\u2026'
     }, 1000)

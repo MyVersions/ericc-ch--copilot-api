@@ -48,9 +48,9 @@ export interface RequestLogInfo {
   path: string
   status: number
   durationMs: number
+  requestSizeKb?: number
   model?: string
   deviceId?: string
-  sessionId?: string
   inputTokens?: number
   outputTokens?: number
 }
@@ -61,23 +61,22 @@ export function logRequest(info: RequestLogInfo): void {
   const status = colorStatus(info.status)
   const duration = ansi.dim(formatDuration(info.durationMs))
 
-  const who = [
-    info.deviceId ? ansi.dim(`device:${info.deviceId.slice(0, 8)}`) : undefined,
-    info.sessionId ? ansi.dim(`session:${info.sessionId}`) : undefined,
-  ]
-    .filter(Boolean)
-    .join(" ")
+  const sizeKb =
+    info.requestSizeKb !== undefined
+      ? ansi.cyan(`${info.requestSizeKb.toFixed(1)}kb`)
+      : undefined
 
   const parts = [
     time,
     method,
     info.path,
     status,
-    info.model ? ansi.magenta(info.model) : undefined,
-    who || undefined,
+    sizeKb,
     info.inputTokens !== undefined && info.outputTokens !== undefined
       ? ansi.yellow(`↑${formatTokens(info.inputTokens)} ↓${formatTokens(info.outputTokens)}`)
       : undefined,
+    info.deviceId ? ansi.dim(`device:${info.deviceId.slice(0, 8)}`) : undefined,
+    info.model ? ansi.magenta(info.model) : undefined,
     duration,
   ].filter((p) => p !== undefined)
 

@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 
-import { queryRecentRequests, queryStats } from "~/lib/db"
+import { deleteDevice, getDevices, getKnownDevices, queryRecentRequests, queryStats, upsertDevice } from "~/lib/db"
 
 import { DASHBOARD_HTML } from "./html"
 
@@ -24,4 +24,27 @@ dashboardRoutes.get("/api/stats", (c) => {
 dashboardRoutes.get("/api/requests", (c) => {
   const requests = queryRecentRequests(20)
   return c.json({ requests })
+})
+
+dashboardRoutes.get("/api/devices", (c) => {
+  return c.json({ devices: getDevices() })
+})
+
+dashboardRoutes.post("/api/devices", async (c) => {
+  const { device_id, name } = await c.req.json<{ device_id: string; name: string }>()
+  if (!device_id?.trim() || !name?.trim()) {
+    return c.json({ error: "device_id e name são obrigatórios." }, 400)
+  }
+  upsertDevice(device_id.trim(), name.trim())
+  return c.json({ ok: true })
+})
+
+dashboardRoutes.delete("/api/devices/:id", (c) => {
+  const device_id = decodeURIComponent(c.req.param("id"))
+  deleteDevice(device_id)
+  return c.json({ ok: true })
+})
+
+dashboardRoutes.get("/api/known-devices", (c) => {
+  return c.json({ devices: getKnownDevices() })
 })

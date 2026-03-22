@@ -27,6 +27,11 @@ export interface RequestLogRow extends LogEntry {
   id: number
 }
 
+export interface Device {
+  device_id: string
+  name: string
+}
+
 let db: Database | undefined
 
 export function getDb(): Database {
@@ -49,15 +54,34 @@ export function getDb(): Database {
     )
   `)
 
-  db.run(
-    "CREATE INDEX IF NOT EXISTS idx_timestamp ON request_logs(timestamp)",
-  )
-  db.run(
+  // Add new columns if the table already existed with the old schema
+  for (const col of ["device_id TEXT", "session_id TEXT"]) {
+    try {
+      db.run(`ALTER TABLE request_logs ADD COLUMN ${col}`)
+    } catch {
+      // Column already exists — ignore
+    }
+  }
+
+  db.run("CREATE INDEX IF NOT EXISTS idx_timestamp ON request_logs(timestamp)")
+
+  for (const idx of [
     "CREATE INDEX IF NOT EXISTS idx_device_id ON request_logs(device_id)",
-  )
-  db.run(
     "CREATE INDEX IF NOT EXISTS idx_session_id ON request_logs(session_id)",
-  )
+  ]) {
+    try {
+      db.run(idx)
+    } catch {
+      // Index may fail if column doesn't exist yet (pre-migration) — ignore
+    }
+  }
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS devices (
+      device_id  TEXT PRIMARY KEY,
+      name       TEXT NOT NULL
+    )
+  `)
 
   return db
 }
@@ -112,4 +136,35 @@ export function queryRecentRequests(limit = 20): Omit<RequestLogRow, "request_bo
       LIMIT ?
     `)
     .all(limit) as Omit<RequestLogRow, "request_body" | "response_body">[]
+}
+
+export function getDevices(): Device[] {
+  return getDb()
+    .prepare("SELECT device_id, name FROM devices ORDER BY name ASC")
+    .all() as Device[]
+}
+
+export function upsertDevice(device_id: string, name: string): void {
+  getDb()
+    .prepare("INSERT OR REPLACE INTO devices (device_id, name) VALUES (?, ?)")
+    .run(device_id, name)
+}
+
+export function deleteDevice(device_id: string): void {
+  getDb()
+    .prepare("DELETE FROM devices WHERE device_id = ?")
+    .run(device_id)
+}
+
+export function getKnownDevices(): { device_id: string; name: string | null }[] {
+  return getDb()
+    .prepare(`
+      SELECT
+        r.device_id,
+        d.name
+      FROM (SELECT DISTINCT device_id FROM request_logs WHERE device_id IS NOT NULL) r
+      LEFT JOIN devices d ON d.device_id = r.device_id
+      ORDER BY d.name ASC, r.device_id ASC
+    `)
+    .all() as { device_id: string; name: string | null }[]
 }
