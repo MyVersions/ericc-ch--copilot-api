@@ -1,7 +1,7 @@
 # Dashboard Improvements — Design Spec
 
 **Date:** 2026-03-22
-**Status:** Approved
+**Status:** Draft
 
 ---
 
@@ -43,6 +43,18 @@ src/
 │       │   └── breakdown.ts           # Device/session breakdown table HTML
 │       └── utils.ts                   # Number/date/currency formatting helpers
 ```
+
+### Frontend Data Flow
+
+On page load, and on every period change, the frontend calls all three API endpoints in parallel:
+
+```
+GET /dashboard/api/stats?period=<value>
+GET /dashboard/api/models?period=<value>
+GET /dashboard/api/breakdown?period=<value>&by=device
+```
+
+When the breakdown tab switches between Device and Session, only the breakdown endpoint is re-fetched. All sections are re-rendered from their respective API responses. No page reload occurs.
 
 ---
 
@@ -112,6 +124,8 @@ The active period label and its resolved date range are shown inline to the righ
 | `prev-month` | Full previous calendar month | Month before that |
 | `ytd` | Jan 1 → today | Same period in previous year |
 
+If `?period` is absent or has an invalid value, default to `7d`.
+
 ### Chart Granularity (X-axis)
 
 | Period | Granularity |
@@ -124,11 +138,13 @@ The active period label and its resolved date range are shown inline to the righ
 
 ## API Endpoints
 
-All existing endpoints are replaced or extended. All accept `?period=<value>` query param.
+All existing endpoints are replaced or extended. All accept `?period=<value>` query param. If `period` is absent or invalid, default to `7d`.
 
 ### `GET /dashboard/api/stats?period=7d`
 
 Returns aggregated metrics for the selected period **and** the equivalent prior period (for % comparison).
+
+**Cost computation:** The DB returns raw per-model token totals. The route layer computes estimated cost by iterating over model rows and calling `estimateCost()` from `pricing.ts`. The total `estimatedCost` in both the period summary and each series bucket is the **sum of costs for models that have pricing** — requests from unknown models contribute `0` to the sum. If **all** requests in a bucket use unknown models, that bucket's `estimatedCost` is `null`.
 
 ```jsonc
 {
@@ -137,10 +153,10 @@ Returns aggregated metrics for the selected period **and** the equivalent prior 
     "requests": 1247,
     "inputTokens": 4200000,
     "outputTokens": 892000,
-    "estimatedCost": 2.34,      // null if any model has no pricing
+    "estimatedCost": 2.34,      // sum of priceable models; null only if ALL models unknown
     "avgDurationMs": 3200,
-    "activeSessions": 38,
-    "activeDevices": 3,
+    "activeSessions": 38,       // count of distinct session_ids with at least one request in the period
+    "activeDevices": 3,         // count of distinct device_ids with at least one request in the period
     "series": [                  // one entry per granularity bucket
       { "ts": 1741996800000, "requests": 180, "inputTokens": 600000, "outputTokens": 128000, "estimatedCost": 0.33, "avgDurationMs": 3100 }
       // ...
@@ -152,8 +168,7 @@ Returns aggregated metrics for the selected period **and** the equivalent prior 
     "outputTokens": 826000,
     "estimatedCost": 2.23,
     "avgDurationMs": 3200,
-    "activeSessions": 36,
-    "activeDevices": 3
+    "activeSessions": 36
     // no series needed for previous period
   }
 }
@@ -182,17 +197,20 @@ Returns per-model request counts and token totals for the period, used by the Mo
 
 Returns per-device (or per-session) aggregates for the period and prior period.
 
+For `by=session`: `name` is the first 8 characters of the `session_id` — no lookup is performed.
+
 ```jsonc
 {
   "rows": [
     {
-      "id": "work-macbook",          // device_id or session_id
-      "name": "work-macbook",        // friendly name if available, else first 8 chars of id
+      "id": "work-macbook",
+      "name": "work-macbook",   // device: friendly name if in devices table, else first 8 chars of device_id
+                                // session: first 8 chars of session_id (no lookup)
       "requests": 612,
       "inputTokens": 2400000,
       "outputTokens": 512000,
       "estimatedCost": 1.20,
-      "prev": { "requests": 566, "estimatedCost": 1.11 }  // for % delta
+      "prev": { "requests": 566, "estimatedCost": 1.11 }
     }
     // ...
   ]
@@ -216,10 +234,14 @@ Returns per-device (or per-session) aggregates for the period and prior period.
 
 Delta display: `↑ 12%` in green / `↓ 3%` in red / `— igual` in gray (threshold: < 0.5% = equal).
 
+The "Sessions" card value is `activeSessions` from the stats response — the count of distinct `session_id` values with at least one request in the period.
+
 ### Row 2 — Per-Device Cost Cards (dynamic, up to 4 cards)
 
-One card per known device. Shows:
-- Device name (friendly name or truncated ID)
+One card per known device, sorted by estimated cost descending for the selected period. If there are more than 4 devices, only the top 4 by cost are shown. Device data (cost, delta, request count) comes from the `/api/breakdown?by=device` response. The `activeDevices` field from the stats response is used solely to determine the total count of active devices — the card values themselves are sourced from the breakdown endpoint.
+
+Each card shows:
+- Device name (friendly name or first 8 chars of device_id)
 - Estimated cost for the period
 - % delta vs prior period
 - Request count for the period
@@ -250,9 +272,17 @@ Devices with no activity in the selected period are shown at reduced opacity wit
 ### Chart Type Behavior
 
 - **Barra / Linha** → value per bucket (per hour, per day, or per week depending on period)
-- **Área** → cumulative value (each point = sum of all buckets up to and including that point)
+- **Área** → cumulative value (each point = sum of all buckets up to and including that point). Cumulative series is computed client-side by accumulating the `series` array before passing to Chart.js.
 
 The Models chart always renders as a stacked bar regardless of the global type switcher (stacking is intrinsic to multi-model data). It does not show a per-chart override button.
+
+### DB Query Granularity
+
+DB query functions accept a `granularity: 'hour' | 'day' | 'week'` parameter, derived from the period in `route.ts`. The SQLite GROUP BY uses:
+
+- `hour` → `strftime('%Y-%m-%dT%H', timestamp/1000, 'unixepoch')`
+- `day` → `strftime('%Y-%m-%d', timestamp/1000, 'unixepoch')`
+- `week` → `strftime('%Y-%W', timestamp/1000, 'unixepoch')` — note: week `00` (days before the first Monday of the year) is a known SQLite edge case and is accepted as-is.
 
 ---
 
@@ -266,7 +296,7 @@ Columns: Name · Requests · Input Tokens · Output Tokens · Custo Estimado
 - Output tokens column: red
 - Custo estimado column: yellow
 - Sorted by estimated cost descending
-- Sessions tab shows `session_id` (first 8 chars) — no friendly name mapping
+- Sessions tab shows first 8 chars of `session_id` — no friendly name mapping
 
 ---
 
@@ -274,12 +304,14 @@ Columns: Name · Requests · Input Tokens · Output Tokens · Custo Estimado
 
 New queries added to `src/lib/db.ts`:
 
-- `queryStatsByPeriod(from: number, to: number): PeriodStats` — aggregates + time series
-- `queryModelsByPeriod(from: number, to: number): ModelSeries` — per-model per-bucket counts
-- `queryBreakdownByDevice(from: number, to: number): BreakdownRow[]`
-- `queryBreakdownBySession(from: number, to: number): BreakdownRow[]`
+- `queryStatsByPeriod(from: number, to: number, granularity: 'hour' | 'day' | 'week'): RawPeriodStats` — aggregates + time series with per-model token rows for cost computation in route layer
+- `queryModelsByPeriod(from: number, to: number, granularity: 'hour' | 'day' | 'week'): RawModelSeries`
+- `queryBreakdownByDevice(from: number, to: number): RawBreakdownRow[]`
+- `queryBreakdownBySession(from: number, to: number): RawBreakdownRow[]`
 
-Period resolution (converting `period` param to `from`/`to` timestamps) happens in `route.ts`, not in `db.ts`. DB functions always receive explicit Unix millisecond timestamps.
+Period resolution (converting `period` param → `from`/`to` timestamps) and granularity selection happen in `route.ts`. DB functions always receive explicit Unix millisecond timestamps and an explicit granularity string.
+
+Cost computation (calling `estimateCost()` on raw rows) also happens in `route.ts`, not in `db.ts`.
 
 ---
 
