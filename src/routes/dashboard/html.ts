@@ -16,6 +16,39 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       padding: 24px;
     }
 
+    .navbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .navbar-brand {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-right: 12px;
+    }
+
+    .nav-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: #8b949e;
+      text-decoration: none;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px 12px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .nav-link:hover { color: #e6edf3; }
+    .nav-link.active {
+      color: #58a6ff;
+      background: #1f2d3d;
+      border-color: #1f4e8c44;
+    }
+
     h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: #f0f6fc; }
     h1 span { color: #58a6ff; }
 
@@ -108,75 +141,17 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     .num { color: #e6edf3; font-variant-numeric: tabular-nums; }
     .muted { color: #484f58; }
-
-    .devices-section {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      margin-top: 28px;
-      overflow: hidden;
-    }
-
-    .devices-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 16px 12px;
-      border-bottom: 1px solid #30363d;
-    }
-
-    .device-form {
-      display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid #30363d;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .device-form input {
-      background: #0d1117;
-      color: #e6edf3;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 13px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .device-form input:focus { border-color: #58a6ff; }
-    .device-form input[name="device_id"] { flex: 2; min-width: 180px; font-family: monospace; }
-    .device-form input[name="name"] { flex: 1; min-width: 120px; }
-
-    .btn-save {
-      background: #238636;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 16px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s;
-    }
-    .btn-save:hover { background: #2ea043; }
-
-    .btn-remove {
-      background: transparent;
-      color: #f85149;
-      border: 1px solid #f8514933;
-      border-radius: 6px;
-      padding: 3px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .btn-remove:hover { background: #f8514922; border-color: #f85149; }
 </style>
 </head>
 <body>
-  <h1>Copilot API <span>/ Dashboard</span> <a href="/devices" style="font-size:13px;font-weight:400;color:#8b949e;text-decoration:none;margin-left:12px;border:1px solid #30363d;border-radius:6px;padding:3px 10px;transition:color 0.15s" onmouseover="this.style.color='#e6edf3'" onmouseout="this.style.color='#8b949e'">Devices →</a></h1>
+  <nav class="navbar">
+    <span class="navbar-brand">Copilot API</span>
+    <a href="/dashboard" class="nav-link active">Dashboard</a>
+    <a href="/devices" class="nav-link">Devices</a>
+    <a href="/sqlite" class="nav-link">SQLite</a>
+  </nav>
+
+  <h1>Dashboard</h1>
 
   <div class="cards">
     <div class="card"><div class="label">Total de requests</div><div class="value" id="total-requests">—</div></div>
@@ -208,29 +183,6 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       </thead>
       <tbody id="requests-tbody">
         <tr><td colspan="6" style="text-align:center;color:#484f58;padding:24px;">Carregando…</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="devices-section">
-    <div class="devices-header">
-      <div class="section-title" style="margin:0">Devices</div>
-    </div>
-    <form class="device-form" onsubmit="saveDevice(event)">
-      <input name="device_id" placeholder="device_id (hash)" autocomplete="off" required />
-      <input name="name" placeholder="Nome amigável" autocomplete="off" required />
-      <button type="submit" class="btn-save">Salvar</button>
-    </form>
-    <table>
-      <thead>
-        <tr>
-          <th>Device ID</th>
-          <th>Nome</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="devices-tbody">
-        <tr><td colspan="3" style="text-align:center;color:#484f58;padding:16px;">Carregando…</td></tr>
       </tbody>
     </table>
   </div>
@@ -375,54 +327,9 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         const res = await fetch('/dashboard/api/devices')
         const data = await res.json()
         deviceMap = new Map(data.devices.map(d => [d.device_id, d.name]))
-
-        const tbody = document.getElementById('devices-tbody')
-        tbody.replaceChildren()
-
-        if (!data.devices.length) {
-          const tr = document.createElement('tr')
-          const td = document.createElement('td')
-          td.colSpan = 3
-          td.textContent = 'Nenhum device cadastrado.'
-          td.style.cssText = 'text-align:center;color:#484f58;padding:16px'
-          tr.appendChild(td)
-          tbody.appendChild(tr)
-          return
-        }
-
-        for (const d of data.devices) {
-          const tr = document.createElement('tr')
-          tr.innerHTML =
-            '<td style="font-family:monospace;font-size:12px;color:#8b949e">' + esc(d.device_id) + '</td>' +
-            '<td>' + esc(d.name) + '</td>' +
-            '<td><button class="btn-remove" onclick="removeDevice(' + JSON.stringify(d.device_id) + ')">Remover</button></td>'
-          tbody.appendChild(tr)
-        }
       } catch (e) {
         console.error('Erro ao carregar devices:', e)
       }
-    }
-
-    async function saveDevice(event) {
-      event.preventDefault()
-      const form = event.target
-      const device_id = form.device_id.value.trim()
-      const name = form.name.value.trim()
-      if (!device_id || !name) return
-      await fetch('/dashboard/api/devices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_id, name }),
-      })
-      form.reset()
-      await loadDevices()
-      await loadRequests()
-    }
-
-    async function removeDevice(device_id) {
-      await fetch('/dashboard/api/devices/' + encodeURIComponent(device_id), { method: 'DELETE' })
-      await loadDevices()
-      await loadRequests()
     }
 
     Promise.all([loadStats(), loadDevices().then(loadRequests)])

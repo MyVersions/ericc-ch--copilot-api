@@ -15,26 +15,41 @@ export const DEVICES_HTML = /* html */ `<!DOCTYPE html>
       padding: 24px;
     }
 
-    .header {
+    .navbar {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 4px;
       margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
     }
 
-    h1 { font-size: 20px; font-weight: 600; color: #f0f6fc; }
-    h1 span { color: #58a6ff; }
+    .navbar-brand {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-right: 12px;
+    }
 
-    .back-link {
+    .nav-link {
       font-size: 13px;
+      font-weight: 500;
       color: #8b949e;
       text-decoration: none;
-      border: 1px solid #30363d;
+      border: 1px solid transparent;
       border-radius: 6px;
-      padding: 3px 10px;
-      transition: color 0.15s;
+      padding: 4px 12px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
     }
-    .back-link:hover { color: #e6edf3; }
+    .nav-link:hover { color: #e6edf3; }
+    .nav-link.active {
+      color: #58a6ff;
+      background: #1f2d3d;
+      border-color: #1f4e8c44;
+    }
+
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: #f0f6fc; }
+    h1 span { color: #58a6ff; }
 
     .panel {
       background: #161b22;
@@ -137,10 +152,14 @@ export const DEVICES_HTML = /* html */ `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <div class="header">
-    <a href="/dashboard" class="back-link">← Dashboard</a>
-    <h1>Copilot API <span>/ Devices</span></h1>
-  </div>
+  <nav class="navbar">
+    <span class="navbar-brand">Copilot API</span>
+    <a href="/dashboard" class="nav-link">Dashboard</a>
+    <a href="/devices" class="nav-link active">Devices</a>
+    <a href="/sqlite" class="nav-link">SQLite</a>
+  </nav>
+
+  <h1>Devices</h1>
 
   <div class="panel">
     <div class="panel-header">Devices conhecidos</div>

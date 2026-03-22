@@ -15,6 +15,39 @@ export const SQLITE_HTML = /* html */ `<!DOCTYPE html>
       padding: 24px;
     }
 
+    .navbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .navbar-brand {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-right: 12px;
+    }
+
+    .nav-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: #8b949e;
+      text-decoration: none;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px 12px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .nav-link:hover { color: #e6edf3; }
+    .nav-link.active {
+      color: #58a6ff;
+      background: #1f2d3d;
+      border-color: #1f4e8c44;
+    }
+
     h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: #f0f6fc; }
     h1 span { color: #58a6ff; }
 
@@ -150,7 +183,14 @@ export const SQLITE_HTML = /* html */ `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>Copilot API — <span>SQLite</span></h1>
+  <nav class="navbar">
+    <span class="navbar-brand">Copilot API</span>
+    <a href="/dashboard" class="nav-link">Dashboard</a>
+    <a href="/devices" class="nav-link">Devices</a>
+    <a href="/sqlite" class="nav-link active">SQLite</a>
+  </nav>
+
+  <h1>SQLite</h1>
 
   <div class="editor">
     <textarea id="sql" placeholder="SELECT * FROM request_logs LIMIT 10" spellcheck="false"></textarea>
