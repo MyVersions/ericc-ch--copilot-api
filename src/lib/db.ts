@@ -241,10 +241,20 @@ export function queryRecentRequests(
     .all(limit) as Array<Omit<RequestLogRow, "request_body" | "response_body">>
 }
 
-export function getDevices(): Array<Device> {
+export interface DeviceWithRoute {
+  device_id: string
+  name: string
+  route: string | null
+}
+
+export function getDevices(): Array<DeviceWithRoute> {
   return getDb()
-    .prepare("SELECT device_id, name FROM devices ORDER BY name ASC")
-    .all() as Array<Device>
+    .prepare(
+      `SELECT d.device_id, d.name,
+              (SELECT route FROM request_logs WHERE device_id = d.device_id AND route IS NOT NULL ORDER BY timestamp DESC LIMIT 1) AS route
+       FROM devices d ORDER BY d.name ASC`,
+    )
+    .all() as Array<DeviceWithRoute>
 }
 
 export function upsertDevice(device_id: string, name: string): void {

@@ -291,6 +291,20 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     }
     .device-row .stat-card { padding: 10px 14px; }
     .device-row .stat-value { font-size: 18px; }
+    .device-row--total .stat-card {
+      border-top-color: #3d444d;
+      border-right-color: #3d444d;
+      border-bottom-color: #3d444d;
+    }
+    .stat-card[data-accent="blue"]  .device-row--total-bg { background: #388bfd08; }
+    .device-row--total .stat-card[data-accent="blue"]   { background: #388bfd0d; }
+    .device-row--total .stat-card[data-accent="teal"]   { background: #2dd4bf0d; }
+    .device-row--total .stat-card[data-accent="green"]  { background: #3fb9500d; }
+    .device-row--total .stat-card[data-accent="yellow"] { background: #d299220d; }
+    .device-row--total .stat-card[data-accent="purple"] { background: #bc8cff0d; }
+    .device-row--total .stat-card[data-accent="slate"]  { background: #8b949e0d; }
+    .device-row--total .stat-card:hover { filter: brightness(1.15); }
+    .device-section.totals-only .device-row:not(.device-row--total) { display: none; }
 </style>
 </head>
 <body>
@@ -363,7 +377,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
   <script>
     let chart = null
-    let deviceMap = new Map() // device_id → name
+    let deviceMap = new Map() // device_id → { name, route }
     let currentChartType = 'bar'   // 'bar' | 'line' | 'area'
     let currentChartGroup = 'total' // 'total' | 'device'
     let lastStatsData = null  // cache to re-render on control change
@@ -391,14 +405,22 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms'
     }
 
+    function resolveDeviceLabel(device_id) {
+      const entry = deviceMap.get(device_id)
+      if (!entry) return device_id.slice(0, 8)
+      if (entry.name) return entry.name
+      if (entry.route === 'openai') return 'openclaw'
+      return device_id.slice(0, 8)
+    }
+
     function deviceLabel(device_id) {
       if (!device_id) return null
-      return deviceMap.get(device_id) ?? device_id.slice(0, 8)
+      return resolveDeviceLabel(device_id)
     }
 
     function deviceLabelForChart(device_id) {
       if (!device_id || device_id === '__unknown__') return '(sem device)'
-      return deviceMap.get(device_id) ?? device_id.slice(0, 8)
+      return resolveDeviceLabel(device_id)
     }
 
     function createRow(r) {
@@ -406,7 +428,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
       const cells = [
         { text: fmtDate(r.timestamp), cls: 'num' },
-        { text: deviceLabel(r.device_id), muted: !deviceMap.has(r.device_id) },
+        { text: deviceLabel(r.device_id), muted: !deviceMap.get(r.device_id)?.name },
         { html: '<span class="tag tag-model">' + esc(r.model) + '</span>' },
         { text: fmt(r.input_tokens), cls: 'num' },
         { text: fmt(r.output_tokens), cls: 'num' },
@@ -483,11 +505,6 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       ['#58a6ff', '#1158c7'],  // light-blue pair
       ['#ffa657', '#e3702c'],  // orange pair
     ]
-
-    function deviceLabelForChart(device_id) {
-      if (!device_id || device_id === '__unknown__') return '(sem device)'
-      return deviceMap.get(device_id) ?? device_id.slice(0, 8)
-    }
 
     function fmtLabel(ts, granularity) {
       const d = new Date(ts)
@@ -716,7 +733,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           <div class="stat-card"><div class="stat-label">Sem dados por device</div>
           <div class="stat-value muted">—</div></div></div>\`
       }
-      function makeDeviceRow(label, d) {
+      function makeDeviceRow(label, d, isTotal) {
+        const cls = isTotal ? 'device-row device-row--total' : 'device-row'
         const cells = CARD_META.map(m => \`
           <div class="stat-card" data-accent="\${m.accent}">
             <i class="stat-icon-bg">\${m.icon}</i>
@@ -725,27 +743,25 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
               <span class="stat-value">\${cardVal(m.key, d)}</span>
             </div>
           </div>\`).join('')
-        return \`<div class="device-row">
+        return \`<div class="\${cls}">
           <div class="device-row-label">\${label}</div>
           \${cells}
         </div>\`
       }
-      const totalRow = makeDeviceRow('', cur)
+      const totalRow = makeDeviceRow('', cur, true)
       const rows = deviceAggregates.map(d => {
         const name = deviceLabelForChart(d.deviceId)
         const lbl = \`<span class="device-name" title="\${esc(name)}">\${esc(name)}</span>\`
-        return makeDeviceRow(lbl, d)
+        return makeDeviceRow(lbl, d, false)
       }).join('')
       return \`<div class="device-section">\${totalRow}\${rows}</div>\`
     }
 
     function renderSummaryCards(cur, prev) {
       const el = document.getElementById('summary-cards')
-      if (currentChartGroup === 'device') {
-        el.innerHTML = renderDeviceCards(cur.deviceAggregates, cur)
-      } else {
-        el.innerHTML = renderTotalCards(cur, prev)
-      }
+      el.innerHTML = renderDeviceCards(cur.deviceAggregates, cur)
+      const section = el.querySelector('.device-section')
+      if (section) section.classList.toggle('totals-only', currentChartGroup !== 'device')
     }
 
     async function loadStats() {
@@ -799,7 +815,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       try {
         const res = await fetch('/dashboard/api/devices')
         const data = await res.json()
-        deviceMap = new Map(data.devices.map(d => [d.device_id, d.name]))
+        deviceMap = new Map(data.devices.map(d => [d.device_id, { name: d.name, route: d.route ?? null }]))
       } catch (e) {
         console.error('Erro ao carregar devices:', e)
       }
