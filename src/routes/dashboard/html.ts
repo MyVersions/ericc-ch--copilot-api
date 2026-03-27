@@ -203,6 +203,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       margin-bottom: 28px;
     }
     .stat-card {
+      position: relative;
+      overflow: hidden;
       width: 150px;
       flex-shrink: 0;
       background: #161b22;
@@ -220,21 +222,35 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .stat-card[data-accent="yellow"] { border-left-color: #d29922; }
     .stat-card[data-accent="purple"] { border-left-color: #bc8cff; }
     .stat-card[data-accent="slate"]  { border-left-color: #8b949e; }
+    .stat-card[data-accent="blue"]   .stat-icon-bg { color: #388bfd; }
+    .stat-card[data-accent="teal"]   .stat-icon-bg { color: #2dd4bf; }
+    .stat-card[data-accent="green"]  .stat-icon-bg { color: #3fb950; }
+    .stat-card[data-accent="yellow"] .stat-icon-bg { color: #d29922; }
+    .stat-card[data-accent="purple"] .stat-icon-bg { color: #bc8cff; }
+    .stat-card[data-accent="slate"]  .stat-icon-bg { color: #8b949e; }
+    .stat-icon-bg {
+      position: absolute;
+      bottom: -10px;
+      left: 6px;
+      font-size: 72px;
+      font-style: normal;
+      line-height: 1;
+      opacity: 0.12;
+      pointer-events: none;
+      user-select: none;
+    }
     .stat-label {
+      position: relative;
       font-size: 11px;
       color: #8b949e;
       margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 5px;
+      text-align: left;
     }
-    .stat-icon { font-size: 13px; font-style: normal; }
     .stat-value { font-size: 22px; font-weight: 600; color: #f0f6fc; font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .stat-value-row { display: flex; align-items: baseline; justify-content: flex-end; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+    .stat-value-row { position: relative; display: flex; align-items: baseline; justify-content: flex-end; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
     .delta { font-size: 11px; font-weight: 500; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
     .delta.green  { color: #3fb950; background: #3fb95018; }
     .delta.red    { color: #f85149; background: #f8514918; }
@@ -677,7 +693,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           ? ''
           : deltaHtml(cur[m.key], prev[m.key])
         return \`<div class="stat-card" data-accent="\${m.accent}">
-          <div class="stat-label"><i class="stat-icon">\${m.icon}</i>\${m.label}</div>
+          <i class="stat-icon-bg">\${m.icon}</i>
+          <div class="stat-label">\${m.label}</div>
           <div class="stat-value-row">
             <span class="stat-value">\${val}</span>
             \${delta}
@@ -697,7 +714,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         const name = deviceLabelForChart(d.deviceId)
         const cells = CARD_META.map(m => \`
           <div class="stat-card" data-accent="\${m.accent}">
-            <div class="stat-label"><i class="stat-icon">\${m.icon}</i>\${m.label}</div>
+            <i class="stat-icon-bg">\${m.icon}</i>
+            <div class="stat-label">\${m.label}</div>
             <div class="stat-value-row">
               <span class="stat-value">\${cardVal(m.key, d)}</span>
             </div>
