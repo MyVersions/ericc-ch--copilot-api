@@ -84,6 +84,22 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       margin-bottom: 28px;
     }
 
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .chart-control-label {
+      font-size: 11px;
+      color: #484f58;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 2px;
+    }
+
     .section-title {
       font-size: 14px;
       font-weight: 600;
@@ -93,7 +109,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       letter-spacing: 0.5px;
     }
 
-    .chart-wrap canvas { max-height: 220px; }
+    .chart-wrap canvas { max-height: 260px; }
 
     .table-wrap {
       background: #161b22;
@@ -228,7 +244,19 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   <div id="summary-cards" class="stats-grid"></div>
 
   <div class="chart-wrap">
-    <div class="section-title">Tokens por dia (últimos 30 dias)</div>
+    <div class="chart-controls">
+      <span class="chart-control-label">Tipo</span>
+      <div class="period-group">
+        <button class="period-btn active" data-chart-type="bar">Barras</button>
+        <button class="period-btn" data-chart-type="line">Linha</button>
+        <button class="period-btn" data-chart-type="area">Área</button>
+      </div>
+      <span class="chart-control-label" style="margin-left:8px">Agrupar</span>
+      <div class="period-group">
+        <button class="period-btn active" data-chart-group="total">Total</button>
+        <button class="period-btn" data-chart-group="device">Device</button>
+      </div>
+    </div>
     <canvas id="tokensChart"></canvas>
   </div>
 
@@ -257,6 +285,9 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
   <script>
     let chart = null
     let deviceMap = new Map() // device_id → name
+    let currentChartType = 'bar'   // 'bar' | 'line' | 'area'
+    let currentChartGroup = 'total' // 'total' | 'device'
+    let lastStatsData = null  // cache to re-render on control change
 
     function esc(str) {
       const div = document.createElement('div')
@@ -283,6 +314,11 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     function deviceLabel(device_id) {
       if (!device_id) return null
+      return deviceMap.get(device_id) ?? device_id.slice(0, 8)
+    }
+
+    function deviceLabelForChart(device_id) {
+      if (!device_id || device_id === '__unknown__') return '(sem device)'
       return deviceMap.get(device_id) ?? device_id.slice(0, 8)
     }
 
@@ -348,49 +384,221 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms'
     }
 
-    function updateChart(series, granularity) {
-      const labels = series.map(b => {
-        const d = new Date(b.ts)
-        if (granularity === 'hour') {
-          return d.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    // Palette: distinct colors for input/output and per-device
+    const PALETTE = [
+      ['#388bfd', '#1f6feb'],  // blue pair  (output, input)
+      ['#3fb950', '#2ea043'],  // green pair
+      ['#d29922', '#bb8009'],  // yellow pair
+      ['#f78166', '#da3633'],  // red pair
+      ['#bc8cff', '#8957e5'],  // purple pair
+      ['#39d353', '#26a641'],  // lime pair
+      ['#58a6ff', '#1158c7'],  // light-blue pair
+      ['#ffa657', '#e3702c'],  // orange pair
+    ]
+
+    function deviceLabelForChart(device_id) {
+      if (!device_id || device_id === '__unknown__') return '(sem device)'
+      return deviceMap.get(device_id) ?? device_id.slice(0, 8)
+    }
+
+    function fmtLabel(ts, granularity) {
+      const d = new Date(ts)
+      if (granularity === 'hour') return d.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    }
+
+    function buildDatasets(series, deviceSeries, granularity, chartType, groupBy) {
+      const isArea = chartType === 'area'
+      const isLine = chartType === 'line'
+      const isBar  = chartType === 'bar'
+
+      if (groupBy === 'device' && deviceSeries) {
+        const deviceIds = Object.keys(deviceSeries)
+
+        if (isArea) {
+          // Area acumulativo por device — empilhado, cada device soma ao anterior
+          return deviceIds.flatMap((deviceId, i) => {
+            const [colorOut, colorIn] = PALETTE[i % PALETTE.length]
+            const label = deviceLabelForChart(deviceId)
+            const inputData  = deviceSeries[deviceId].map(b => b.inputTokens)
+            const outputData = deviceSeries[deviceId].map(b => b.outputTokens)
+            const totalData  = inputData.map((v, j) => v + outputData[j])
+            return [{
+              label: label,
+              data: totalData,
+              backgroundColor: colorIn + '55',
+              borderColor: colorIn,
+              borderWidth: 1.5,
+              fill: true,
+              tension: 0.3,
+              stack: 'devices',
+              type: 'line',
+              pointRadius: 2,
+            }]
+          })
         }
-        if (granularity === 'week') {
-          return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+
+        if (isLine) {
+          // Linha separada por device — input+output juntos (total por device)
+          return deviceIds.flatMap((deviceId, i) => {
+            const [colorOut, colorIn] = PALETTE[i % PALETTE.length]
+            const label = deviceLabelForChart(deviceId)
+            const inputData  = deviceSeries[deviceId].map(b => b.inputTokens)
+            const outputData = deviceSeries[deviceId].map(b => b.outputTokens)
+            return [
+              {
+                label: label + ' (entrada)',
+                data: inputData,
+                borderColor: colorIn,
+                backgroundColor: colorIn,
+                borderWidth: 1.5,
+                tension: 0.3,
+                pointRadius: 2,
+                fill: false,
+              },
+              {
+                label: label + ' (saída)',
+                data: outputData,
+                borderColor: colorOut,
+                backgroundColor: colorOut,
+                borderWidth: 1.5,
+                borderDash: [4, 3],
+                tension: 0.3,
+                pointRadius: 2,
+                fill: false,
+              },
+            ]
+          })
         }
-        // day (default)
-        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-      })
+
+        // Bar por device — barras lado a lado, entrada e saída separadas
+        return deviceIds.flatMap((deviceId, i) => {
+          const [colorOut, colorIn] = PALETTE[i % PALETTE.length]
+          const label = deviceLabelForChart(deviceId)
+          const inputData  = deviceSeries[deviceId].map(b => b.inputTokens)
+          const outputData = deviceSeries[deviceId].map(b => b.outputTokens)
+          return [
+            {
+              label: label + ' (entrada)',
+              data: inputData,
+              backgroundColor: colorIn,
+              borderRadius: 2,
+              stack: 'device_' + deviceId,
+            },
+            {
+              label: label + ' (saída)',
+              data: outputData,
+              backgroundColor: colorOut,
+              borderRadius: 2,
+              stack: 'device_' + deviceId,
+            },
+          ]
+        })
+      }
+
+      // ── groupBy === 'total' ──────────────────────────────────────────────
       const inputData  = series.map(b => b.inputTokens)
       const outputData = series.map(b => b.outputTokens)
 
-      if (chart) {
-        chart.data.labels = labels
-        chart.data.datasets[0].data = inputData
-        chart.data.datasets[1].data = outputData
-        chart.update()
-      } else {
-        chart = new Chart(document.getElementById('tokensChart'), {
-          type: 'bar',
-          data: {
-            labels,
-            datasets: [
-              { label: 'Entrada', data: inputData,  backgroundColor: '#1f6feb', borderRadius: 3, stack: 'tokens' },
-              { label: 'Saída',   data: outputData, backgroundColor: '#388bfd', borderRadius: 3, stack: 'tokens' },
-            ]
+      if (isArea) {
+        // Área acumulativa: cada ponto é a soma de todos os anteriores
+        let accIn = 0, accOut = 0
+        const cumInput  = inputData.map(v  => (accIn  += v))
+        const cumOutput = outputData.map(v => (accOut += v))
+        return [
+          {
+            label: 'Entrada (acum.)',
+            data: cumInput,
+            backgroundColor: '#1f6feb55',
+            borderColor: '#1f6feb',
+            borderWidth: 1.5,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 2,
           },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { labels: { color: '#8b949e', boxWidth: 12 } },
-              tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' tokens' } }
-            },
-            scales: {
-              x: { stacked: true, ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
-              y: { stacked: true, ticks: { color: '#8b949e', callback: v => fmt(v) }, grid: { color: '#21262d' } }
-            }
-          }
-        })
+          {
+            label: 'Saída (acum.)',
+            data: cumOutput,
+            backgroundColor: '#3fb95055',
+            borderColor: '#3fb950',
+            borderWidth: 1.5,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 2,
+          },
+        ]
       }
+
+      if (isLine) {
+        return [
+          {
+            label: 'Entrada',
+            data: inputData,
+            borderColor: '#1f6feb',
+            backgroundColor: '#1f6feb',
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 3,
+            fill: false,
+          },
+          {
+            label: 'Saída',
+            data: outputData,
+            borderColor: '#3fb950',
+            backgroundColor: '#3fb950',
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 3,
+            fill: false,
+          },
+        ]
+      }
+
+      // Bar total
+      return [
+        { label: 'Entrada', data: inputData,  backgroundColor: '#1f6feb', borderRadius: 3, stack: 'tokens' },
+        { label: 'Saída',   data: outputData, backgroundColor: '#3fb950', borderRadius: 3, stack: 'tokens' },
+      ]
+    }
+
+    function updateChart(series, deviceSeries, granularity) {
+      const labels   = series.map(b => fmtLabel(b.ts, granularity))
+      const datasets = buildDatasets(series, deviceSeries, granularity, currentChartType, currentChartGroup)
+
+      const isBar    = currentChartType === 'bar'
+      const isStacked = isBar || (currentChartType === 'area' && currentChartGroup === 'device')
+
+      const chartJsType = isBar ? 'bar' : 'line'
+
+      if (chart) {
+        chart.destroy()
+        chart = null
+      }
+
+      chart = new Chart(document.getElementById('tokensChart'), {
+        type: chartJsType,
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8b949e', boxWidth: 12 } },
+            tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' tokens' } },
+          },
+          scales: {
+            x: {
+              stacked: isStacked,
+              ticks: { color: '#8b949e' },
+              grid: { color: '#21262d' },
+            },
+            y: {
+              stacked: isStacked,
+              ticks: { color: '#8b949e', callback: v => fmt(v) },
+              grid: { color: '#21262d' },
+            },
+          },
+        },
+      })
     }
 
     async function loadStats() {
@@ -423,7 +631,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           </div>
         \`).join('')
 
-        updateChart(cur.series, data.granularity)
+        lastStatsData = data
+        updateChart(cur.series, cur.deviceSeries, data.granularity)
       } catch (e) {
         console.error('Erro ao carregar stats:', e)
       }
@@ -473,6 +682,30 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         btn.classList.add('active')
         currentPeriod = btn.dataset.period
         loadStats()
+      })
+    })
+
+    // Chart type selector
+    document.querySelectorAll('[data-chart-type]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-chart-type]').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        currentChartType = btn.dataset.chartType
+        if (lastStatsData) {
+          updateChart(lastStatsData.current.series, lastStatsData.current.deviceSeries, lastStatsData.granularity)
+        }
+      })
+    })
+
+    // Chart group selector
+    document.querySelectorAll('[data-chart-group]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-chart-group]').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        currentChartGroup = btn.dataset.chartGroup
+        if (lastStatsData) {
+          updateChart(lastStatsData.current.series, lastStatsData.current.deviceSeries, lastStatsData.granularity)
+        }
       })
     })
 

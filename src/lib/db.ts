@@ -59,6 +59,14 @@ export interface ModelBucket {
   outputTokens: number
 }
 
+export interface DeviceBucket {
+  ts: number
+  bucketKey: string
+  deviceId: string | null
+  inputTokens: number
+  outputTokens: number
+}
+
 export interface PeriodAggregates {
   requests: number
   inputTokens: number
@@ -71,6 +79,7 @@ export interface PeriodAggregates {
 export interface RawPeriodStats {
   buckets: Array<PeriodBucket>
   modelBuckets: Array<ModelBucket>
+  deviceBuckets: Array<DeviceBucket>
   aggregates: PeriodAggregates
 }
 
@@ -269,11 +278,11 @@ export function queryStatsByPeriod(
 
   let fmt: string
   if (granularity === "hour") {
-    fmt = "strftime('%Y-%m-%dT%H', timestamp/1000, 'unixepoch')"
+    fmt = "strftime('%Y-%m-%dT%H', timestamp/1000, 'unixepoch', 'localtime')"
   } else if (granularity === "day") {
-    fmt = "strftime('%Y-%m-%d', timestamp/1000, 'unixepoch')"
+    fmt = "strftime('%Y-%m-%d', timestamp/1000, 'unixepoch', 'localtime')"
   } else {
-    fmt = "strftime('%Y-%W', timestamp/1000, 'unixepoch')"
+    fmt = "strftime('%Y-%W', timestamp/1000, 'unixepoch', 'localtime')"
   }
 
   const buckets = db
@@ -327,5 +336,22 @@ export function queryStatsByPeriod(
     )
     .get(from, to) as PeriodAggregates
 
-  return { buckets, modelBuckets, aggregates: agg }
+  const deviceBuckets = db
+    .prepare(
+      `
+      SELECT
+        MIN(timestamp)        AS ts,
+        ${fmt}                AS bucketKey,
+        device_id             AS deviceId,
+        SUM(input_tokens)     AS inputTokens,
+        SUM(output_tokens)    AS outputTokens
+      FROM request_logs
+      WHERE timestamp >= ? AND timestamp < ?
+      GROUP BY bucketKey, device_id
+      ORDER BY ts ASC
+    `,
+    )
+    .all(from, to) as Array<DeviceBucket>
+
+  return { buckets, modelBuckets, deviceBuckets, aggregates: agg }
 }

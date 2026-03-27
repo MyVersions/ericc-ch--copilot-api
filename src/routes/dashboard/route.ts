@@ -7,6 +7,7 @@ import {
   queryRecentRequests,
   queryStatsByPeriod,
   upsertDevice,
+  type DeviceBucket,
   type Granularity,
   type ModelBucket,
 } from "~/lib/db"
@@ -183,6 +184,34 @@ function computeCost(modelBuckets: Array<ModelBucket>): number | null {
   return anyPriceable ? total : null
 }
 
+type DevicePoint = { ts: number; inputTokens: number; outputTokens: number }
+
+function buildDeviceSeries(
+  buckets: Array<{ ts: number; bucketKey: string }>,
+  deviceBuckets: Array<DeviceBucket>,
+): Record<string, Array<DevicePoint>> {
+  // Collect all distinct deviceIds
+  const deviceIds = [
+    ...new Set(deviceBuckets.map((d) => d.deviceId ?? "__unknown__")),
+  ]
+  const result: Record<string, Array<DevicePoint>> = {}
+  for (const deviceId of deviceIds) {
+    result[deviceId] = buckets.map((b) => {
+      const row = deviceBuckets.find(
+        (d) =>
+          d.bucketKey === b.bucketKey
+          && (d.deviceId ?? "__unknown__") === deviceId,
+      )
+      return {
+        ts: b.ts,
+        inputTokens: row?.inputTokens ?? 0,
+        outputTokens: row?.outputTokens ?? 0,
+      }
+    })
+  }
+  return result
+}
+
 export const dashboardRoutes = new Hono()
 
 dashboardRoutes.get("/", (c) => c.html(DASHBOARD_HTML))
@@ -220,6 +249,7 @@ dashboardRoutes.get("/api/stats", (c) => {
       activeSessions: cur.aggregates.activeSessions,
       activeDevices: cur.aggregates.activeDevices,
       series,
+      deviceSeries: buildDeviceSeries(cur.buckets, cur.deviceBuckets),
     },
     previous: {
       requests: prev.aggregates.requests,
