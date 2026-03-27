@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite"
-
 import consola from "consola"
 
 import { PATHS } from "./paths"
@@ -41,7 +40,44 @@ export interface Device {
   name: string
 }
 
+export type Granularity = "hour" | "day" | "week"
+
+export interface PeriodBucket {
+  ts: number // Unix ms for the start of the bucket
+  requests: number
+  inputTokens: number
+  outputTokens: number
+  avgDurationMs: number
+}
+
+export interface ModelBucket {
+  ts: number
+  model: string
+  inputTokens: number
+  outputTokens: number
+}
+
+export interface PeriodAggregates {
+  requests: number
+  inputTokens: number
+  outputTokens: number
+  avgDurationMs: number
+  activeSessions: number
+  activeDevices: number
+}
+
+export interface RawPeriodStats {
+  buckets: Array<PeriodBucket>
+  modelBuckets: Array<ModelBucket>
+  aggregates: PeriodAggregates
+}
+
 let db: Database | undefined
+
+function boolToInt(value: boolean | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  return value ? 1 : 0
+}
 
 export function getDb(): Database {
   if (db) return db
@@ -136,8 +172,8 @@ export function insertLog(entry: LogEntry): void {
         entry.request_body ?? null,
         entry.response_body ?? null,
         entry.finish_reason ?? null,
-        entry.stream == null ? null : entry.stream ? 1 : 0,
-        entry.is_agent_call == null ? null : entry.is_agent_call ? 1 : 0,
+        boolToInt(entry.stream),
+        boolToInt(entry.is_agent_call),
         entry.cached_tokens ?? null,
         entry.request_id ?? null,
         entry.route ?? null,
@@ -150,10 +186,11 @@ export function insertLog(entry: LogEntry): void {
   }
 }
 
-export function queryStats(): DailyStats[] {
+export function queryStats(): Array<DailyStats> {
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
   return getDb()
-    .prepare(`
+    .prepare(
+      `
       SELECT
         date(timestamp / 1000, 'unixepoch') AS day,
         SUM(input_tokens)  AS input_tokens,
@@ -163,25 +200,30 @@ export function queryStats(): DailyStats[] {
       WHERE timestamp >= ?
       GROUP BY day
       ORDER BY day ASC
-    `)
-    .all(thirtyDaysAgo) as DailyStats[]
+    `,
+    )
+    .all(thirtyDaysAgo) as Array<DailyStats>
 }
 
-export function queryRecentRequests(limit = 20): Omit<RequestLogRow, "request_body" | "response_body">[] {
+export function queryRecentRequests(
+  limit = 20,
+): Array<Omit<RequestLogRow, "request_body" | "response_body">> {
   return getDb()
-    .prepare(`
+    .prepare(
+      `
       SELECT id, timestamp, model, device_id, session_id, input_tokens, output_tokens, duration_ms
       FROM request_logs
       ORDER BY timestamp DESC
       LIMIT ?
-    `)
-    .all(limit) as Omit<RequestLogRow, "request_body" | "response_body">[]
+    `,
+    )
+    .all(limit) as Array<Omit<RequestLogRow, "request_body" | "response_body">>
 }
 
-export function getDevices(): Device[] {
+export function getDevices(): Array<Device> {
   return getDb()
     .prepare("SELECT device_id, name FROM devices ORDER BY name ASC")
-    .all() as Device[]
+    .all() as Array<Device>
 }
 
 export function upsertDevice(device_id: string, name: string): void {
@@ -191,20 +233,95 @@ export function upsertDevice(device_id: string, name: string): void {
 }
 
 export function deleteDevice(device_id: string): void {
-  getDb()
-    .prepare("DELETE FROM devices WHERE device_id = ?")
-    .run(device_id)
+  getDb().prepare("DELETE FROM devices WHERE device_id = ?").run(device_id)
 }
 
-export function getKnownDevices(): { device_id: string; name: string | null }[] {
+export function getKnownDevices(): Array<{
+  device_id: string
+  name: string | null
+}> {
   return getDb()
-    .prepare(`
+    .prepare(
+      `
       SELECT
         r.device_id,
         d.name
       FROM (SELECT DISTINCT device_id FROM request_logs WHERE device_id IS NOT NULL) r
       LEFT JOIN devices d ON d.device_id = r.device_id
       ORDER BY d.name ASC, r.device_id ASC
-    `)
-    .all() as { device_id: string; name: string | null }[]
+    `,
+    )
+    .all() as Array<{ device_id: string; name: string | null }>
+}
+
+/**
+ * Returns time-series buckets + per-model buckets + period aggregates.
+ * Period resolution and granularity selection must happen in the route layer.
+ */
+export function queryStatsByPeriod(
+  from: number,
+  to: number,
+  granularity: Granularity,
+): RawPeriodStats {
+  const db = getDb()
+
+  let fmt: string
+  if (granularity === "hour") {
+    fmt = "strftime('%Y-%m-%dT%H', timestamp/1000, 'unixepoch')"
+  } else if (granularity === "day") {
+    fmt = "strftime('%Y-%m-%d', timestamp/1000, 'unixepoch')"
+  } else {
+    fmt = "strftime('%Y-%W', timestamp/1000, 'unixepoch')"
+  }
+
+  const buckets = db
+    .prepare(
+      `
+      SELECT
+        MIN(timestamp)        AS ts,
+        COUNT(*)              AS requests,
+        SUM(input_tokens)     AS inputTokens,
+        SUM(output_tokens)    AS outputTokens,
+        AVG(duration_ms)      AS avgDurationMs
+      FROM request_logs
+      WHERE timestamp >= ? AND timestamp < ?
+      GROUP BY ${fmt}
+      ORDER BY ts ASC
+    `,
+    )
+    .all(from, to) as Array<PeriodBucket>
+
+  const modelBuckets = db
+    .prepare(
+      `
+      SELECT
+        MIN(timestamp)        AS ts,
+        model,
+        SUM(input_tokens)     AS inputTokens,
+        SUM(output_tokens)    AS outputTokens
+      FROM request_logs
+      WHERE timestamp >= ? AND timestamp < ?
+      GROUP BY ${fmt}, model
+      ORDER BY ts ASC
+    `,
+    )
+    .all(from, to) as Array<ModelBucket>
+
+  const agg = db
+    .prepare(
+      `
+      SELECT
+        COUNT(*)                   AS requests,
+        SUM(input_tokens)          AS inputTokens,
+        SUM(output_tokens)         AS outputTokens,
+        AVG(duration_ms)           AS avgDurationMs,
+        COUNT(DISTINCT session_id) AS activeSessions,
+        COUNT(DISTINCT device_id)  AS activeDevices
+      FROM request_logs
+      WHERE timestamp >= ? AND timestamp < ?
+    `,
+    )
+    .get(from, to) as PeriodAggregates
+
+  return { buckets, modelBuckets, aggregates: agg }
 }

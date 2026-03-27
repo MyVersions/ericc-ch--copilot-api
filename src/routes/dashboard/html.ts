@@ -141,6 +141,63 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     .num { color: #e6edf3; font-variant-numeric: tabular-nums; }
     .muted { color: #484f58; }
+
+    /* --- Period selector --- */
+    .period-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .period-group {
+      display: flex;
+      gap: 2px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 2px;
+    }
+    .period-btn {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .period-btn:hover  { background: #21262d; color: #e6edf3; }
+    .period-btn.active { background: #21262d; color: #e6edf3; font-weight: 600; }
+    .period-range-label { font-size: 12px; color: #8b949e; margin-left: 4px; }
+
+    /* --- Summary cards (6-up grid) --- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-value { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+    .delta { font-size: 11px; margin-top: 4px; display: block; }
+    .delta.green { color: #3fb950; }
+    .delta.red   { color: #f85149; }
+    .delta.gray  { color: #8b949e; }
 </style>
 </head>
 <body>
@@ -153,12 +210,22 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
   <h1>Dashboard</h1>
 
-  <div class="cards">
-    <div class="card"><div class="label">Total de requests</div><div class="value" id="total-requests">—</div></div>
-    <div class="card"><div class="label">Tokens de entrada</div><div class="value" id="total-input">—</div></div>
-    <div class="card"><div class="label">Tokens de saída</div><div class="value" id="total-output">—</div></div>
-    <div class="card"><div class="label">Período</div><div class="value">30d</div></div>
+  <div class="period-selector">
+    <div class="period-group">
+      <button class="period-btn" data-period="today">Hoje</button>
+      <button class="period-btn" data-period="yesterday">Ontem</button>
+      <button class="period-btn active" data-period="7d">7d</button>
+      <button class="period-btn" data-period="15d">15d</button>
+      <button class="period-btn" data-period="30d">30d</button>
+    </div>
+    <div class="period-group">
+      <button class="period-btn" data-period="current-month">Mês atual</button>
+      <button class="period-btn" data-period="prev-month">Mês ant.</button>
+      <button class="period-btn" data-period="ytd">YTD</button>
+    </div>
+    <span id="period-range" class="period-range-label"></span>
   </div>
+  <div id="summary-cards" class="stats-grid"></div>
 
   <div class="chart-wrap">
     <div class="section-title">Tokens por dia (últimos 30 dias)</div>
@@ -249,47 +316,107 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       return tr
     }
 
+    let currentPeriod = '7d'
+
+    function pctDelta(cur, prev) {
+      if (prev == null || prev === 0) return null
+      return ((cur - prev) / Math.abs(prev)) * 100
+    }
+
+    function deltaHtml(cur, prev) {
+      const d = pctDelta(cur, prev)
+      if (d === null) return '<span class="delta gray">—</span>'
+      if (Math.abs(d) < 0.5) return '<span class="delta gray">— igual</span>'
+      const sign = d > 0 ? '↑' : '↓'
+      const cls  = d > 0 ? 'green' : 'red'
+      return \`<span class="delta \${cls}">\${sign} \${Math.abs(d).toFixed(1)}%</span>\`
+    }
+
+    function formatTokens(n) {
+      if (n == null) return '—'
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+      if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+      return String(n)
+    }
+
+    function formatCost(v) {
+      return v == null ? 'N/A' : '$' + v.toFixed(2)
+    }
+
+    function formatDuration(ms) {
+      if (ms == null) return '—'
+      return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms'
+    }
+
+    function updateChart(series) {
+      const labels = series.map(b => {
+        const d = new Date(b.ts)
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      })
+      const inputData  = series.map(b => b.inputTokens)
+      const outputData = series.map(b => b.outputTokens)
+
+      if (chart) {
+        chart.data.labels = labels
+        chart.data.datasets[0].data = inputData
+        chart.data.datasets[1].data = outputData
+        chart.update()
+      } else {
+        chart = new Chart(document.getElementById('tokensChart'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Entrada', data: inputData,  backgroundColor: '#1f6feb', borderRadius: 3, stack: 'tokens' },
+              { label: 'Saída',   data: outputData, backgroundColor: '#388bfd', borderRadius: 3, stack: 'tokens' },
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { labels: { color: '#8b949e', boxWidth: 12 } },
+              tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' tokens' } }
+            },
+            scales: {
+              x: { stacked: true, ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
+              y: { stacked: true, ticks: { color: '#8b949e', callback: v => fmt(v) }, grid: { color: '#21262d' } }
+            }
+          }
+        })
+      }
+    }
+
     async function loadStats() {
       try {
-        const res = await fetch('/dashboard/api/stats')
+        const res  = await fetch('/dashboard/api/stats?period=' + currentPeriod)
         const data = await res.json()
+        const cur  = data.current
+        const prev = data.previous
 
-        document.getElementById('total-requests').textContent = fmt(data.totals.request_count)
-        document.getElementById('total-input').textContent = fmt(data.totals.input_tokens)
-        document.getElementById('total-output').textContent = fmt(data.totals.output_tokens)
+        // Period range label
+        const fmtDate = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        document.getElementById('period-range').textContent =
+          fmtDate(data.period.from) + ' – ' + fmtDate(data.period.to)
 
-        const labels = data.days.map(d => d.day.slice(5))
-        const inputData = data.days.map(d => d.input_tokens)
-        const outputData = data.days.map(d => d.output_tokens)
+        // 6 summary cards
+        const cards = [
+          { label: 'Requests',       val: cur.requests.toLocaleString('pt-BR'),        delta: deltaHtml(cur.requests,      prev.requests) },
+          { label: 'Input Tokens',   val: formatTokens(cur.inputTokens),               delta: deltaHtml(cur.inputTokens,   prev.inputTokens) },
+          { label: 'Output Tokens',  val: formatTokens(cur.outputTokens),              delta: deltaHtml(cur.outputTokens,  prev.outputTokens) },
+          { label: 'Custo Estimado', val: formatCost(cur.estimatedCost),               delta: cur.estimatedCost != null ? deltaHtml(cur.estimatedCost, prev.estimatedCost) : '' },
+          { label: 'Duração Média',  val: formatDuration(cur.avgDurationMs),           delta: deltaHtml(cur.avgDurationMs, prev.avgDurationMs) },
+          { label: 'Sessions',       val: cur.activeSessions.toLocaleString('pt-BR'),  delta: deltaHtml(cur.activeSessions, prev.activeSessions) },
+        ]
 
-        if (chart) {
-          chart.data.labels = labels
-          chart.data.datasets[0].data = inputData
-          chart.data.datasets[1].data = outputData
-          chart.update()
-        } else {
-          chart = new Chart(document.getElementById('tokensChart'), {
-            type: 'bar',
-            data: {
-              labels,
-              datasets: [
-                { label: 'Entrada', data: inputData, backgroundColor: '#1f6feb', borderRadius: 3, stack: 'tokens' },
-                { label: 'Saída',   data: outputData, backgroundColor: '#388bfd', borderRadius: 3, stack: 'tokens' }
-              ]
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                legend: { labels: { color: '#8b949e', boxWidth: 12 } },
-                tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' tokens' } }
-              },
-              scales: {
-                x: { stacked: true, ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
-                y: { stacked: true, ticks: { color: '#8b949e', callback: v => fmt(v) }, grid: { color: '#21262d' } }
-              }
-            }
-          })
-        }
+        document.getElementById('summary-cards').innerHTML = cards.map(card => \`
+          <div class="stat-card">
+            <div class="stat-label">\${card.label}</div>
+            <div class="stat-value">\${card.val}</div>
+            \${card.delta}
+          </div>
+        \`).join('')
+
+        updateChart(cur.series)
       } catch (e) {
         console.error('Erro ao carregar stats:', e)
       }
@@ -332,6 +459,16 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       }
     }
 
+    // Period selector
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        currentPeriod = btn.dataset.period
+        loadStats()
+      })
+    })
+
     Promise.all([loadStats(), loadDevices().then(loadRequests)])
 
     let countdown = 30
@@ -339,6 +476,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       countdown--
       if (countdown <= 0) {
         countdown = 30
+        loadStats()
         loadDevices().then(loadRequests)
       }
       document.getElementById('refresh-note').textContent = 'Atualizando em ' + countdown + 's\u2026'
