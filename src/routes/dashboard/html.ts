@@ -198,21 +198,19 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     /* --- Summary cards (6-up grid) --- */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 1px;
-      background: #21262d;
-      border: 1px solid #21262d;
-      border-radius: 8px;
-      overflow: hidden;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
       margin-bottom: 28px;
     }
     .stat-card {
-      background: #0d1117;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 3px solid transparent;
+      border-radius: 8px;
       padding: 16px 18px;
-      border-left: 2px solid transparent;
-      transition: background 0.15s;
+      transition: background 0.15s, border-color 0.15s;
     }
-    .stat-card:hover { background: #161b22; }
+    .stat-card:hover { background: #1c2128; }
     .stat-card[data-accent="blue"]   { border-left-color: #388bfd; }
     .stat-card[data-accent="teal"]   { border-left-color: #2dd4bf; }
     .stat-card[data-accent="green"]  { border-left-color: #3fb950; }
@@ -230,32 +228,31 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       align-items: center;
       gap: 5px;
     }
-    .stat-icon { opacity: 0.6; font-style: normal; }
-    .stat-value-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-    .stat-value { font-size: 22px; font-weight: 600; color: #f0f6fc; font-variant-numeric: tabular-nums; line-height: 1; }
+    .stat-icon { opacity: 0.5; font-style: normal; }
+    .stat-value { font-size: 24px; font-weight: 600; color: #f0f6fc; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .stat-value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
     .delta { font-size: 11px; font-weight: 500; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
-    .delta.green  { color: #3fb950; background: #3fb95014; }
-    .delta.red    { color: #f85149; background: #f8514914; }
+    .delta.green  { color: #3fb950; background: #3fb95018; }
+    .delta.red    { color: #f85149; background: #f8514918; }
     .delta.gray   { color: #484f58; background: transparent; }
 
     /* --- Device cards (row layout) --- */
-    .device-section { margin-bottom: 12px; }
+    .device-section { margin-bottom: 20px; }
     .device-row {
       display: grid;
-      grid-template-columns: 160px repeat(6, 1fr);
+      grid-template-columns: 150px repeat(6, 1fr);
       gap: 1px;
       background: #21262d;
       border: 1px solid #21262d;
       border-radius: 8px;
       overflow: hidden;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .device-row-label {
-      background: #0d1117;
-      padding: 0 16px;
+      background: #161b22;
+      padding: 0 14px;
       display: flex;
       align-items: center;
-      border-right: 1px solid #21262d;
     }
     .device-name {
       font-size: 12px;
@@ -265,15 +262,23 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 128px;
+      max-width: 120px;
     }
-    .device-row .stat-card { border-left: none; border-radius: 0; padding: 12px 16px; }
-    .device-row .stat-label { margin-bottom: 4px; }
-    .device-row .stat-value { font-size: 17px; }
+    .device-row .stat-card {
+      border: none;
+      border-left: none;
+      border-radius: 0;
+      padding: 12px 14px;
+      background: #161b22;
+    }
+    .device-row .stat-card:hover { background: #1c2128; }
+    .device-row .stat-label { margin-bottom: 3px; }
+    .device-row .stat-value { font-size: 16px; }
     .device-row-header {
       display: grid;
-      grid-template-columns: 160px repeat(6, 1fr);
+      grid-template-columns: 150px repeat(6, 1fr);
       margin-bottom: 4px;
+      padding: 0 1px;
     }
     .device-row-header-cell {
       font-size: 10px;
@@ -281,7 +286,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       text-transform: uppercase;
       letter-spacing: 0.8px;
       font-weight: 600;
-      padding: 0 16px 4px;
+      padding: 0 14px 4px;
     }
 </style>
 </head>
