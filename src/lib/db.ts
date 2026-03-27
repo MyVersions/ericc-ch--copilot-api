@@ -76,10 +76,20 @@ export interface PeriodAggregates {
   activeDevices: number
 }
 
+export interface DeviceAggregate {
+  deviceId: string | null
+  requests: number
+  inputTokens: number
+  outputTokens: number
+  avgDurationMs: number
+  activeSessions: number
+}
+
 export interface RawPeriodStats {
   buckets: Array<PeriodBucket>
   modelBuckets: Array<ModelBucket>
   deviceBuckets: Array<DeviceBucket>
+  deviceAggregates: Array<DeviceAggregate>
   aggregates: PeriodAggregates
 }
 
@@ -265,6 +275,96 @@ export function getKnownDevices(): Array<{
     .all() as Array<{ device_id: string; name: string | null }>
 }
 
+function bucketFmt(granularity: Granularity): string {
+  if (granularity === "hour") {
+    return "strftime('%Y-%m-%dT%H', timestamp/1000, 'unixepoch', 'localtime')"
+  }
+  if (granularity === "day") {
+    return "strftime('%Y-%m-%d', timestamp/1000, 'unixepoch', 'localtime')"
+  }
+  return "strftime('%Y-%W', timestamp/1000, 'unixepoch', 'localtime')"
+}
+
+type TimeRange = { from: number; to: number }
+
+function queryPeriodBuckets(
+  db: Database,
+  fmt: string,
+  range: TimeRange,
+): Array<PeriodBucket> {
+  return db
+    .prepare(
+      `SELECT MIN(timestamp) AS ts, ${fmt} AS bucketKey,
+              COUNT(*) AS requests, SUM(input_tokens) AS inputTokens,
+              SUM(output_tokens) AS outputTokens, AVG(duration_ms) AS avgDurationMs
+       FROM request_logs WHERE timestamp >= ? AND timestamp < ?
+       GROUP BY bucketKey ORDER BY ts ASC`,
+    )
+    .all(range.from, range.to) as Array<PeriodBucket>
+}
+
+function queryModelBuckets(
+  db: Database,
+  fmt: string,
+  range: TimeRange,
+): Array<ModelBucket> {
+  return db
+    .prepare(
+      `SELECT MIN(timestamp) AS ts, ${fmt} AS bucketKey,
+              model, SUM(input_tokens) AS inputTokens, SUM(output_tokens) AS outputTokens
+       FROM request_logs WHERE timestamp >= ? AND timestamp < ?
+       GROUP BY bucketKey, model ORDER BY ts ASC`,
+    )
+    .all(range.from, range.to) as Array<ModelBucket>
+}
+
+function queryPeriodAggregates(
+  db: Database,
+  range: TimeRange,
+): PeriodAggregates {
+  return db
+    .prepare(
+      `SELECT COUNT(*) AS requests, SUM(input_tokens) AS inputTokens,
+              SUM(output_tokens) AS outputTokens, AVG(duration_ms) AS avgDurationMs,
+              COUNT(DISTINCT session_id) AS activeSessions,
+              COUNT(DISTINCT device_id) AS activeDevices
+       FROM request_logs WHERE timestamp >= ? AND timestamp < ?`,
+    )
+    .get(range.from, range.to) as PeriodAggregates
+}
+
+function queryDeviceBuckets(
+  db: Database,
+  fmt: string,
+  range: TimeRange,
+): Array<DeviceBucket> {
+  return db
+    .prepare(
+      `SELECT MIN(timestamp) AS ts, ${fmt} AS bucketKey,
+              device_id AS deviceId,
+              SUM(input_tokens) AS inputTokens, SUM(output_tokens) AS outputTokens
+       FROM request_logs WHERE timestamp >= ? AND timestamp < ?
+       GROUP BY bucketKey, device_id ORDER BY ts ASC`,
+    )
+    .all(range.from, range.to) as Array<DeviceBucket>
+}
+
+function queryDeviceAggregates(
+  db: Database,
+  range: TimeRange,
+): Array<DeviceAggregate> {
+  return db
+    .prepare(
+      `SELECT device_id AS deviceId, COUNT(*) AS requests,
+              SUM(input_tokens) AS inputTokens, SUM(output_tokens) AS outputTokens,
+              AVG(duration_ms) AS avgDurationMs,
+              COUNT(DISTINCT session_id) AS activeSessions
+       FROM request_logs WHERE timestamp >= ? AND timestamp < ?
+       GROUP BY device_id ORDER BY inputTokens + outputTokens DESC`,
+    )
+    .all(range.from, range.to) as Array<DeviceAggregate>
+}
+
 /**
  * Returns time-series buckets + per-model buckets + period aggregates.
  * Period resolution and granularity selection must happen in the route layer.
@@ -275,83 +375,13 @@ export function queryStatsByPeriod(
   granularity: Granularity,
 ): RawPeriodStats {
   const db = getDb()
-
-  let fmt: string
-  if (granularity === "hour") {
-    fmt = "strftime('%Y-%m-%dT%H', timestamp/1000, 'unixepoch', 'localtime')"
-  } else if (granularity === "day") {
-    fmt = "strftime('%Y-%m-%d', timestamp/1000, 'unixepoch', 'localtime')"
-  } else {
-    fmt = "strftime('%Y-%W', timestamp/1000, 'unixepoch', 'localtime')"
+  const fmt = bucketFmt(granularity)
+  const range: TimeRange = { from, to }
+  return {
+    buckets: queryPeriodBuckets(db, fmt, range),
+    modelBuckets: queryModelBuckets(db, fmt, range),
+    aggregates: queryPeriodAggregates(db, range),
+    deviceBuckets: queryDeviceBuckets(db, fmt, range),
+    deviceAggregates: queryDeviceAggregates(db, range),
   }
-
-  const buckets = db
-    .prepare(
-      `
-      SELECT
-        MIN(timestamp)        AS ts,
-        ${fmt}                AS bucketKey,
-        COUNT(*)              AS requests,
-        SUM(input_tokens)     AS inputTokens,
-        SUM(output_tokens)    AS outputTokens,
-        AVG(duration_ms)      AS avgDurationMs
-      FROM request_logs
-      WHERE timestamp >= ? AND timestamp < ?
-      GROUP BY bucketKey
-      ORDER BY ts ASC
-    `,
-    )
-    .all(from, to) as Array<PeriodBucket>
-
-  const modelBuckets = db
-    .prepare(
-      `
-      SELECT
-        MIN(timestamp)        AS ts,
-        ${fmt}                AS bucketKey,
-        model,
-        SUM(input_tokens)     AS inputTokens,
-        SUM(output_tokens)    AS outputTokens
-      FROM request_logs
-      WHERE timestamp >= ? AND timestamp < ?
-      GROUP BY bucketKey, model
-      ORDER BY ts ASC
-    `,
-    )
-    .all(from, to) as Array<ModelBucket>
-
-  const agg = db
-    .prepare(
-      `
-      SELECT
-        COUNT(*)                   AS requests,
-        SUM(input_tokens)          AS inputTokens,
-        SUM(output_tokens)         AS outputTokens,
-        AVG(duration_ms)           AS avgDurationMs,
-        COUNT(DISTINCT session_id) AS activeSessions,
-        COUNT(DISTINCT device_id)  AS activeDevices
-      FROM request_logs
-      WHERE timestamp >= ? AND timestamp < ?
-    `,
-    )
-    .get(from, to) as PeriodAggregates
-
-  const deviceBuckets = db
-    .prepare(
-      `
-      SELECT
-        MIN(timestamp)        AS ts,
-        ${fmt}                AS bucketKey,
-        device_id             AS deviceId,
-        SUM(input_tokens)     AS inputTokens,
-        SUM(output_tokens)    AS outputTokens
-      FROM request_logs
-      WHERE timestamp >= ? AND timestamp < ?
-      GROUP BY bucketKey, device_id
-      ORDER BY ts ASC
-    `,
-    )
-    .all(from, to) as Array<DeviceBucket>
-
-  return { buckets, modelBuckets, deviceBuckets, aggregates: agg }
 }

@@ -7,6 +7,7 @@ import {
   queryRecentRequests,
   queryStatsByPeriod,
   upsertDevice,
+  type DeviceAggregate,
   type DeviceBucket,
   type Granularity,
   type ModelBucket,
@@ -184,6 +185,28 @@ function computeCost(modelBuckets: Array<ModelBucket>): number | null {
   return anyPriceable ? total : null
 }
 
+function enrichDeviceAggregates(
+  deviceAggregates: Array<DeviceAggregate>,
+  modelBuckets: Array<ModelBucket>,
+): Array<DeviceAggregate & { estimatedCost: number | null }> {
+  // Build per-device model buckets for cost estimation
+  // Note: modelBuckets don't have deviceId, so we estimate cost proportionally
+  // using the device's share of total tokens
+  const totalInput = deviceAggregates.reduce((s, d) => s + d.inputTokens, 0)
+  const totalOutput = deviceAggregates.reduce((s, d) => s + d.outputTokens, 0)
+  const totalCost = computeCost(modelBuckets)
+
+  return deviceAggregates.map((d) => {
+    let estimatedCost: number | null = null
+    if (totalCost !== null && totalInput + totalOutput > 0) {
+      const deviceShare =
+        (d.inputTokens + d.outputTokens) / (totalInput + totalOutput)
+      estimatedCost = totalCost * deviceShare
+    }
+    return { ...d, estimatedCost }
+  })
+}
+
 type DevicePoint = { ts: number; inputTokens: number; outputTokens: number }
 
 function buildDeviceSeries(
@@ -250,6 +273,10 @@ dashboardRoutes.get("/api/stats", (c) => {
       activeDevices: cur.aggregates.activeDevices,
       series,
       deviceSeries: buildDeviceSeries(cur.buckets, cur.deviceBuckets),
+      deviceAggregates: enrichDeviceAggregates(
+        cur.deviceAggregates,
+        cur.modelBuckets,
+      ),
     },
     previous: {
       requests: prev.aggregates.requests,

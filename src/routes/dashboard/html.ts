@@ -166,6 +166,12 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       flex-wrap: wrap;
       margin-bottom: 16px;
     }
+    .period-selector-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .period-group {
       display: flex;
       gap: 2px;
@@ -214,6 +220,29 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .delta.green { color: #3fb950; }
     .delta.red   { color: #f85149; }
     .delta.gray  { color: #8b949e; }
+
+    /* --- Device cards group --- */
+    .device-section { margin-bottom: 28px; }
+    .device-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #484f58;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .device-tag {
+      background: #1f2d3d;
+      color: #58a6ff;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-family: monospace;
+      font-weight: 500;
+    }
 </style>
 </head>
 <body>
@@ -240,6 +269,13 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       <button class="period-btn" data-period="ytd">YTD</button>
     </div>
     <span id="period-range" class="period-range-label"></span>
+    <div class="period-selector-right">
+      <span class="chart-control-label">Agrupar</span>
+      <div class="period-group">
+        <button class="period-btn active" data-chart-group="total">Total</button>
+        <button class="period-btn" data-chart-group="device">Device</button>
+      </div>
+    </div>
   </div>
   <div id="summary-cards" class="stats-grid"></div>
 
@@ -250,11 +286,6 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         <button class="period-btn active" data-chart-type="bar">Barras</button>
         <button class="period-btn" data-chart-type="line">Linha</button>
         <button class="period-btn" data-chart-type="area">Área</button>
-      </div>
-      <span class="chart-control-label" style="margin-left:8px">Agrupar</span>
-      <div class="period-group">
-        <button class="period-btn active" data-chart-group="total">Total</button>
-        <button class="period-btn" data-chart-group="device">Device</button>
       </div>
     </div>
     <canvas id="tokensChart"></canvas>
@@ -416,25 +447,21 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         const deviceIds = Object.keys(deviceSeries)
 
         if (isArea) {
-          // Area acumulativo por device — empilhado, cada device soma ao anterior
-          return deviceIds.flatMap((deviceId, i) => {
-            const [colorOut, colorIn] = PALETTE[i % PALETTE.length]
-            const label = deviceLabelForChart(deviceId)
-            const inputData  = deviceSeries[deviceId].map(b => b.inputTokens)
-            const outputData = deviceSeries[deviceId].map(b => b.outputTokens)
-            const totalData  = inputData.map((v, j) => v + outputData[j])
-            return [{
-              label: label,
+          // Stacked area por device — valores absolutos, Chart.js empilha via fill:'-1'
+          return deviceIds.map((deviceId, i) => {
+            const [, colorIn] = PALETTE[i % PALETTE.length]
+            const totalData = deviceSeries[deviceId].map(b => b.inputTokens + b.outputTokens)
+            return {
+              label: deviceLabelForChart(deviceId),
               data: totalData,
-              backgroundColor: colorIn + '55',
+              backgroundColor: colorIn + '88',
               borderColor: colorIn,
               borderWidth: 1.5,
-              fill: true,
+              fill: i === 0 ? 'origin' : '-1',
               tension: 0.3,
-              stack: 'devices',
-              type: 'line',
               pointRadius: 2,
-            }]
+              type: 'line',
+            }
           })
         }
 
@@ -501,28 +528,24 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       const outputData = series.map(b => b.outputTokens)
 
       if (isArea) {
-        // Área acumulativa: cada ponto é a soma de todos os anteriores
-        let accIn = 0, accOut = 0
-        const cumInput  = inputData.map(v  => (accIn  += v))
-        const cumOutput = outputData.map(v => (accOut += v))
         return [
           {
-            label: 'Entrada (acum.)',
-            data: cumInput,
+            label: 'Entrada',
+            data: inputData,
             backgroundColor: '#1f6feb55',
             borderColor: '#1f6feb',
             borderWidth: 1.5,
-            fill: true,
+            fill: 'origin',
             tension: 0.3,
             pointRadius: 2,
           },
           {
-            label: 'Saída (acum.)',
-            data: cumOutput,
+            label: 'Saída',
+            data: outputData,
             backgroundColor: '#3fb95055',
             borderColor: '#3fb950',
             borderWidth: 1.5,
-            fill: true,
+            fill: '-1',
             tension: 0.3,
             pointRadius: 2,
           },
@@ -565,8 +588,9 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       const labels   = series.map(b => fmtLabel(b.ts, granularity))
       const datasets = buildDatasets(series, deviceSeries, granularity, currentChartType, currentChartGroup)
 
-      const isBar    = currentChartType === 'bar'
-      const isStacked = isBar || (currentChartType === 'area' && currentChartGroup === 'device')
+      const isBar     = currentChartType === 'bar'
+      const isArea    = currentChartType === 'area'
+      const isStacked = isBar || isArea
 
       const chartJsType = isBar ? 'bar' : 'line'
 
@@ -601,6 +625,63 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       })
     }
 
+    function renderTotalCards(cur, prev) {
+      const cards = [
+        { label: 'Requests',       val: cur.requests.toLocaleString('pt-BR'),        delta: deltaHtml(cur.requests,      prev.requests) },
+        { label: 'Input Tokens',   val: formatTokens(cur.inputTokens),               delta: deltaHtml(cur.inputTokens,   prev.inputTokens) },
+        { label: 'Output Tokens',  val: formatTokens(cur.outputTokens),              delta: deltaHtml(cur.outputTokens,  prev.outputTokens) },
+        { label: 'Custo Estimado', val: formatCost(cur.estimatedCost),               delta: cur.estimatedCost != null ? deltaHtml(cur.estimatedCost, prev.estimatedCost) : '' },
+        { label: 'Duração Média',  val: formatDuration(cur.avgDurationMs),           delta: deltaHtml(cur.avgDurationMs, prev.avgDurationMs) },
+        { label: 'Sessions',       val: cur.activeSessions.toLocaleString('pt-BR'),  delta: deltaHtml(cur.activeSessions, prev.activeSessions) },
+      ]
+      return \`<div class="stats-grid">\` + cards.map(card => \`
+        <div class="stat-card">
+          <div class="stat-label">\${card.label}</div>
+          <div class="stat-value">\${card.val}</div>
+          \${card.delta}
+        </div>
+      \`).join('') + \`</div>\`
+    }
+
+    function renderDeviceCards(deviceAggregates) {
+      if (!deviceAggregates || deviceAggregates.length === 0) {
+        return \`<div class="stats-grid"><div class="stat-card"><div class="stat-label">Sem dados por device</div><div class="stat-value muted">—</div></div></div>\`
+      }
+      return deviceAggregates.map(d => {
+        const name = deviceLabelForChart(d.deviceId)
+        const cards = [
+          { label: 'Requests',       val: d.requests.toLocaleString('pt-BR') },
+          { label: 'Input Tokens',   val: formatTokens(d.inputTokens) },
+          { label: 'Output Tokens',  val: formatTokens(d.outputTokens) },
+          { label: 'Custo Est.',     val: formatCost(d.estimatedCost) },
+          { label: 'Duração Média',  val: formatDuration(d.avgDurationMs) },
+          { label: 'Sessions',       val: d.activeSessions.toLocaleString('pt-BR') },
+        ]
+        return \`
+          <div class="device-section">
+            <div class="device-section-label">
+              <span class="device-tag">\${esc(name)}</span>
+            </div>
+            <div class="stats-grid">\` + cards.map(card => \`
+              <div class="stat-card">
+                <div class="stat-label">\${card.label}</div>
+                <div class="stat-value">\${card.val}</div>
+              </div>
+            \`).join('') + \`</div>
+          </div>
+        \`
+      }).join('')
+    }
+
+    function renderSummaryCards(cur, prev) {
+      const el = document.getElementById('summary-cards')
+      if (currentChartGroup === 'device') {
+        el.innerHTML = renderDeviceCards(cur.deviceAggregates)
+      } else {
+        el.innerHTML = renderTotalCards(cur, prev)
+      }
+    }
+
     async function loadStats() {
       try {
         const res  = await fetch('/dashboard/api/stats?period=' + currentPeriod)
@@ -613,25 +694,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         document.getElementById('period-range').textContent =
           fmtDate(data.period.from) + ' – ' + fmtDate(data.period.to)
 
-        // 6 summary cards
-        const cards = [
-          { label: 'Requests',       val: cur.requests.toLocaleString('pt-BR'),        delta: deltaHtml(cur.requests,      prev.requests) },
-          { label: 'Input Tokens',   val: formatTokens(cur.inputTokens),               delta: deltaHtml(cur.inputTokens,   prev.inputTokens) },
-          { label: 'Output Tokens',  val: formatTokens(cur.outputTokens),              delta: deltaHtml(cur.outputTokens,  prev.outputTokens) },
-          { label: 'Custo Estimado', val: formatCost(cur.estimatedCost),               delta: cur.estimatedCost != null ? deltaHtml(cur.estimatedCost, prev.estimatedCost) : '' },
-          { label: 'Duração Média',  val: formatDuration(cur.avgDurationMs),           delta: deltaHtml(cur.avgDurationMs, prev.avgDurationMs) },
-          { label: 'Sessions',       val: cur.activeSessions.toLocaleString('pt-BR'),  delta: deltaHtml(cur.activeSessions, prev.activeSessions) },
-        ]
-
-        document.getElementById('summary-cards').innerHTML = cards.map(card => \`
-          <div class="stat-card">
-            <div class="stat-label">\${card.label}</div>
-            <div class="stat-value">\${card.val}</div>
-            \${card.delta}
-          </div>
-        \`).join('')
-
         lastStatsData = data
+        renderSummaryCards(cur, prev)
         updateChart(cur.series, cur.deviceSeries, data.granularity)
       } catch (e) {
         console.error('Erro ao carregar stats:', e)
@@ -704,6 +768,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
         btn.classList.add('active')
         currentChartGroup = btn.dataset.chartGroup
         if (lastStatsData) {
+          renderSummaryCards(lastStatsData.current, lastStatsData.previous)
           updateChart(lastStatsData.current.series, lastStatsData.current.deviceSeries, lastStatsData.granularity)
         }
       })
