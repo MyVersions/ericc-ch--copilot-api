@@ -44,6 +44,7 @@ export type Granularity = "hour" | "day" | "week"
 
 export interface PeriodBucket {
   ts: number // Unix ms for the start of the bucket
+  bucketKey: string // strftime string used for grouping (join key)
   requests: number
   inputTokens: number
   outputTokens: number
@@ -52,6 +53,7 @@ export interface PeriodBucket {
 
 export interface ModelBucket {
   ts: number
+  bucketKey: string // strftime string used for grouping (join key)
   model: string
   inputTokens: number
   outputTokens: number
@@ -279,13 +281,14 @@ export function queryStatsByPeriod(
       `
       SELECT
         MIN(timestamp)        AS ts,
+        ${fmt}                AS bucketKey,
         COUNT(*)              AS requests,
         SUM(input_tokens)     AS inputTokens,
         SUM(output_tokens)    AS outputTokens,
         AVG(duration_ms)      AS avgDurationMs
       FROM request_logs
       WHERE timestamp >= ? AND timestamp < ?
-      GROUP BY ${fmt}
+      GROUP BY bucketKey
       ORDER BY ts ASC
     `,
     )
@@ -296,12 +299,13 @@ export function queryStatsByPeriod(
       `
       SELECT
         MIN(timestamp)        AS ts,
+        ${fmt}                AS bucketKey,
         model,
         SUM(input_tokens)     AS inputTokens,
         SUM(output_tokens)    AS outputTokens
       FROM request_logs
       WHERE timestamp >= ? AND timestamp < ?
-      GROUP BY ${fmt}, model
+      GROUP BY bucketKey, model
       ORDER BY ts ASC
     `,
     )

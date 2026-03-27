@@ -348,9 +348,16 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms'
     }
 
-    function updateChart(series) {
+    function updateChart(series, granularity) {
       const labels = series.map(b => {
         const d = new Date(b.ts)
+        if (granularity === 'hour') {
+          return d.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        }
+        if (granularity === 'week') {
+          return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        }
+        // day (default)
         return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
       })
       const inputData  = series.map(b => b.inputTokens)
@@ -416,7 +423,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           </div>
         \`).join('')
 
-        updateChart(cur.series)
+        updateChart(cur.series, data.granularity)
       } catch (e) {
         console.error('Erro ao carregar stats:', e)
       }

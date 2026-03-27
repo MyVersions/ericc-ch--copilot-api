@@ -197,7 +197,7 @@ dashboardRoutes.get("/api/stats", (c) => {
   const prev = queryStatsByPeriod(prevFrom, prevTo, gran)
 
   const series = cur.buckets.map((b) => {
-    const mBuckets = cur.modelBuckets.filter((m) => m.ts === b.ts)
+    const mBuckets = cur.modelBuckets.filter((m) => m.bucketKey === b.bucketKey)
     return {
       ts: b.ts,
       requests: b.requests,
@@ -210,6 +210,7 @@ dashboardRoutes.get("/api/stats", (c) => {
 
   return c.json({
     period: { from, to },
+    granularity: gran,
     current: {
       requests: cur.aggregates.requests,
       inputTokens: cur.aggregates.inputTokens,
