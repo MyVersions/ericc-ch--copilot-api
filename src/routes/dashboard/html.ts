@@ -198,9 +198,10 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     /* --- Summary cards (6-up grid) --- */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(6, 1fr);
       gap: 12px;
       margin-bottom: 28px;
+      padding-left: 162px; /* aligns with device metric columns: 150px label + 12px gap */
     }
     .stat-card {
       background: #161b22;
@@ -236,49 +237,37 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .delta.red    { color: #f85149; background: #f8514918; }
     .delta.gray   { color: #484f58; background: transparent; }
 
-    /* --- Device cards (row layout) --- */
-    .device-section { margin-bottom: 20px; }
+    /* --- Device rows --- */
+    .device-section { margin-bottom: 28px; }
     .device-row {
       display: grid;
       grid-template-columns: 150px repeat(6, 1fr);
-      gap: 1px;
-      background: #21262d;
-      border: 1px solid #21262d;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 6px;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: stretch;
     }
     .device-row-label {
-      background: #161b22;
-      padding: 0 14px;
       display: flex;
       align-items: center;
+      padding: 0 4px;
     }
     .device-name {
       font-size: 12px;
       font-weight: 600;
-      color: #58a6ff;
+      color: #8b949e;
       font-family: ui-monospace, monospace;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 120px;
+      max-width: 142px;
     }
-    .device-row .stat-card {
-      border: none;
-      border-left: none;
-      border-radius: 0;
-      padding: 12px 14px;
-      background: #161b22;
-    }
-    .device-row .stat-card:hover { background: #1c2128; }
-    .device-row .stat-label { margin-bottom: 3px; }
-    .device-row .stat-value { font-size: 16px; }
+    .device-row .stat-card { padding: 12px 16px; }
+    .device-row .stat-value { font-size: 18px; }
     .device-row-header {
       display: grid;
       grid-template-columns: 150px repeat(6, 1fr);
-      margin-bottom: 4px;
-      padding: 0 1px;
+      gap: 12px;
+      margin-bottom: 6px;
     }
     .device-row-header-cell {
       font-size: 10px;
@@ -286,7 +275,10 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       text-transform: uppercase;
       letter-spacing: 0.8px;
       font-weight: 600;
-      padding: 0 14px 4px;
+      padding: 0 18px 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
 </style>
 </head>
@@ -719,7 +711,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       const rows = deviceAggregates.map(d => {
         const name = deviceLabelForChart(d.deviceId)
         const cells = CARD_META.map(m => \`
-          <div class="stat-card">
+          <div class="stat-card" data-accent="\${m.accent}">
             <div class="stat-value-row">
               <span class="stat-value">\${cardVal(m.key, d)}</span>
             </div>
