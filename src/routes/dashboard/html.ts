@@ -198,50 +198,90 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     /* --- Summary cards (6-up grid) --- */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 1px;
+      background: #21262d;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      overflow: hidden;
       margin-bottom: 28px;
     }
     .stat-card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      padding: 16px;
+      background: #0d1117;
+      padding: 16px 18px;
+      border-left: 2px solid transparent;
+      transition: background 0.15s;
     }
+    .stat-card:hover { background: #161b22; }
+    .stat-card[data-accent="blue"]   { border-left-color: #388bfd; }
+    .stat-card[data-accent="teal"]   { border-left-color: #2dd4bf; }
+    .stat-card[data-accent="green"]  { border-left-color: #3fb950; }
+    .stat-card[data-accent="yellow"] { border-left-color: #d29922; }
+    .stat-card[data-accent="purple"] { border-left-color: #bc8cff; }
+    .stat-card[data-accent="slate"]  { border-left-color: #8b949e; }
     .stat-label {
-      font-size: 12px;
-      color: #8b949e;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .stat-value { font-size: 24px; font-weight: 600; color: #f0f6fc; }
-    .delta { font-size: 11px; margin-top: 4px; display: block; }
-    .delta.green { color: #3fb950; }
-    .delta.red   { color: #f85149; }
-    .delta.gray  { color: #8b949e; }
-
-    /* --- Device cards group --- */
-    .device-section { margin-bottom: 28px; }
-    .device-section-label {
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
       color: #484f58;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
       margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
-    .device-tag {
-      background: #1f2d3d;
+    .stat-icon { opacity: 0.6; font-style: normal; }
+    .stat-value-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .stat-value { font-size: 22px; font-weight: 600; color: #f0f6fc; font-variant-numeric: tabular-nums; line-height: 1; }
+    .delta { font-size: 11px; font-weight: 500; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+    .delta.green  { color: #3fb950; background: #3fb95014; }
+    .delta.red    { color: #f85149; background: #f8514914; }
+    .delta.gray   { color: #484f58; background: transparent; }
+
+    /* --- Device cards (row layout) --- */
+    .device-section { margin-bottom: 12px; }
+    .device-row {
+      display: grid;
+      grid-template-columns: 160px repeat(6, 1fr);
+      gap: 1px;
+      background: #21262d;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .device-row-label {
+      background: #0d1117;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      border-right: 1px solid #21262d;
+    }
+    .device-name {
+      font-size: 12px;
+      font-weight: 600;
       color: #58a6ff;
-      border-radius: 4px;
-      padding: 1px 6px;
-      font-size: 11px;
-      font-family: monospace;
-      font-weight: 500;
+      font-family: ui-monospace, monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 128px;
+    }
+    .device-row .stat-card { border-left: none; border-radius: 0; padding: 12px 16px; }
+    .device-row .stat-label { margin-bottom: 4px; }
+    .device-row .stat-value { font-size: 17px; }
+    .device-row-header {
+      display: grid;
+      grid-template-columns: 160px repeat(6, 1fr);
+      margin-bottom: 4px;
+    }
+    .device-row-header-cell {
+      font-size: 10px;
+      color: #30363d;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      padding: 0 16px 4px;
     }
 </style>
 </head>
@@ -392,12 +432,21 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     function deltaHtml(cur, prev) {
       const d = pctDelta(cur, prev)
-      if (d === null) return '<span class="delta gray">—</span>'
-      if (Math.abs(d) < 0.5) return '<span class="delta gray">— igual</span>'
+      if (d === null) return ''
+      if (Math.abs(d) < 0.5) return '<span class="delta gray">—</span>'
       const sign = d > 0 ? '↑' : '↓'
       const cls  = d > 0 ? 'green' : 'red'
-      return \`<span class="delta \${cls}">\${sign} \${Math.abs(d).toFixed(1)}%</span>\`
+      return \`<span class="delta \${cls}">\${sign}\${Math.abs(d).toFixed(1)}%</span>\`
     }
+
+    const CARD_META = [
+      { key: 'requests',      label: 'Requests',      icon: '↗',  accent: 'blue'   },
+      { key: 'inputTokens',   label: 'Input',         icon: '⬇',  accent: 'teal'   },
+      { key: 'outputTokens',  label: 'Output',        icon: '⬆',  accent: 'green'  },
+      { key: 'estimatedCost', label: 'Custo Est.',    icon: '$',   accent: 'yellow' },
+      { key: 'avgDurationMs', label: 'Duração',       icon: '◷',  accent: 'purple' },
+      { key: 'activeSessions',label: 'Sessions',      icon: '⬡',  accent: 'slate'  },
+    ]
 
     function formatTokens(n) {
       if (n == null) return '—'
@@ -625,52 +674,57 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       })
     }
 
+    function cardVal(key, d) {
+      if (key === 'requests')       return d.requests?.toLocaleString('pt-BR') ?? '—'
+      if (key === 'inputTokens')    return formatTokens(d.inputTokens)
+      if (key === 'outputTokens')   return formatTokens(d.outputTokens)
+      if (key === 'estimatedCost')  return formatCost(d.estimatedCost)
+      if (key === 'avgDurationMs')  return formatDuration(d.avgDurationMs)
+      if (key === 'activeSessions') return d.activeSessions?.toLocaleString('pt-BR') ?? '—'
+      return '—'
+    }
+
     function renderTotalCards(cur, prev) {
-      const cards = [
-        { label: 'Requests',       val: cur.requests.toLocaleString('pt-BR'),        delta: deltaHtml(cur.requests,      prev.requests) },
-        { label: 'Input Tokens',   val: formatTokens(cur.inputTokens),               delta: deltaHtml(cur.inputTokens,   prev.inputTokens) },
-        { label: 'Output Tokens',  val: formatTokens(cur.outputTokens),              delta: deltaHtml(cur.outputTokens,  prev.outputTokens) },
-        { label: 'Custo Estimado', val: formatCost(cur.estimatedCost),               delta: cur.estimatedCost != null ? deltaHtml(cur.estimatedCost, prev.estimatedCost) : '' },
-        { label: 'Duração Média',  val: formatDuration(cur.avgDurationMs),           delta: deltaHtml(cur.avgDurationMs, prev.avgDurationMs) },
-        { label: 'Sessions',       val: cur.activeSessions.toLocaleString('pt-BR'),  delta: deltaHtml(cur.activeSessions, prev.activeSessions) },
-      ]
-      return \`<div class="stats-grid">\` + cards.map(card => \`
-        <div class="stat-card">
-          <div class="stat-label">\${card.label}</div>
-          <div class="stat-value">\${card.val}</div>
-          \${card.delta}
-        </div>
-      \`).join('') + \`</div>\`
+      const cells = CARD_META.map(m => {
+        const val   = cardVal(m.key, cur)
+        const delta = m.key === 'estimatedCost' && cur.estimatedCost == null
+          ? ''
+          : deltaHtml(cur[m.key], prev[m.key])
+        return \`<div class="stat-card" data-accent="\${m.accent}">
+          <div class="stat-label"><i class="stat-icon">\${m.icon}</i>\${m.label}</div>
+          <div class="stat-value-row">
+            <span class="stat-value">\${val}</span>
+            \${delta}
+          </div>
+        </div>\`
+      }).join('')
+      return \`<div class="stats-grid">\${cells}</div>\`
     }
 
     function renderDeviceCards(deviceAggregates) {
       if (!deviceAggregates || deviceAggregates.length === 0) {
-        return \`<div class="stats-grid"><div class="stat-card"><div class="stat-label">Sem dados por device</div><div class="stat-value muted">—</div></div></div>\`
+        return \`<div class="stats-grid" style="grid-template-columns:1fr">
+          <div class="stat-card"><div class="stat-label">Sem dados por device</div>
+          <div class="stat-value muted">—</div></div></div>\`
       }
-      return deviceAggregates.map(d => {
+      const header = \`<div class="device-row-header">
+        <div class="device-row-header-cell"></div>
+        \${CARD_META.map(m => \`<div class="device-row-header-cell">\${m.label}</div>\`).join('')}
+      </div>\`
+      const rows = deviceAggregates.map(d => {
         const name = deviceLabelForChart(d.deviceId)
-        const cards = [
-          { label: 'Requests',       val: d.requests.toLocaleString('pt-BR') },
-          { label: 'Input Tokens',   val: formatTokens(d.inputTokens) },
-          { label: 'Output Tokens',  val: formatTokens(d.outputTokens) },
-          { label: 'Custo Est.',     val: formatCost(d.estimatedCost) },
-          { label: 'Duração Média',  val: formatDuration(d.avgDurationMs) },
-          { label: 'Sessions',       val: d.activeSessions.toLocaleString('pt-BR') },
-        ]
-        return \`
-          <div class="device-section">
-            <div class="device-section-label">
-              <span class="device-tag">\${esc(name)}</span>
+        const cells = CARD_META.map(m => \`
+          <div class="stat-card">
+            <div class="stat-value-row">
+              <span class="stat-value">\${cardVal(m.key, d)}</span>
             </div>
-            <div class="stats-grid">\` + cards.map(card => \`
-              <div class="stat-card">
-                <div class="stat-label">\${card.label}</div>
-                <div class="stat-value">\${card.val}</div>
-              </div>
-            \`).join('') + \`</div>
-          </div>
-        \`
+          </div>\`).join('')
+        return \`<div class="device-row">
+          <div class="device-row-label"><span class="device-name" title="\${esc(name)}">\${esc(name)}</span></div>
+          \${cells}
+        </div>\`
       }).join('')
+      return \`<div class="device-section">\${header}\${rows}</div>\`
     }
 
     function renderSummaryCards(cur, prev) {
