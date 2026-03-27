@@ -195,21 +195,23 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .period-btn.active { background: #21262d; color: #e6edf3; font-weight: 600; }
     .period-range-label { font-size: 12px; color: #8b949e; margin-left: 4px; }
 
-    /* --- Summary cards (6-up grid) --- */
+    /* --- Summary cards --- */
     .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      display: flex;
+      flex-wrap: wrap;
       gap: 12px;
       margin-bottom: 28px;
-      padding-left: 162px; /* aligns with device metric columns: 150px label + 12px gap */
     }
     .stat-card {
+      width: 150px;
+      flex-shrink: 0;
       background: #161b22;
       border: 1px solid #30363d;
       border-left: 3px solid transparent;
       border-radius: 8px;
-      padding: 16px 18px;
+      padding: 14px 16px;
       transition: background 0.15s, border-color 0.15s;
+      text-align: right;
     }
     .stat-card:hover { background: #1c2128; }
     .stat-card[data-accent="blue"]   { border-left-color: #388bfd; }
@@ -219,19 +221,20 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .stat-card[data-accent="purple"] { border-left-color: #bc8cff; }
     .stat-card[data-accent="slate"]  { border-left-color: #8b949e; }
     .stat-label {
-      font-size: 10px;
-      color: #484f58;
-      margin-bottom: 8px;
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
       font-weight: 600;
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 5px;
     }
-    .stat-icon { opacity: 0.5; font-style: normal; }
-    .stat-value { font-size: 24px; font-weight: 600; color: #f0f6fc; font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .stat-value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+    .stat-icon { font-size: 13px; font-style: normal; }
+    .stat-value { font-size: 22px; font-weight: 600; color: #f0f6fc; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .stat-value-row { display: flex; align-items: baseline; justify-content: flex-end; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
     .delta { font-size: 11px; font-weight: 500; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
     .delta.green  { color: #3fb950; background: #3fb95018; }
     .delta.red    { color: #f85149; background: #f8514918; }
@@ -240,15 +243,18 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     /* --- Device rows --- */
     .device-section { margin-bottom: 28px; }
     .device-row {
-      display: grid;
-      grid-template-columns: 150px repeat(6, 1fr);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
       gap: 12px;
       margin-bottom: 12px;
-      align-items: stretch;
     }
     .device-row-label {
+      width: 150px;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
+      min-height: 80px;
       padding: 0 4px;
     }
     .device-name {
@@ -261,25 +267,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       text-overflow: ellipsis;
       max-width: 142px;
     }
-    .device-row .stat-card { padding: 12px 16px; }
+    .device-row .stat-card { padding: 10px 14px; }
     .device-row .stat-value { font-size: 18px; }
-    .device-row-header {
-      display: grid;
-      grid-template-columns: 150px repeat(6, 1fr);
-      gap: 12px;
-      margin-bottom: 6px;
-    }
-    .device-row-header-cell {
-      font-size: 10px;
-      color: #30363d;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      font-weight: 600;
-      padding: 0 18px 0;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
 </style>
 </head>
 <body>
@@ -700,18 +689,15 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     function renderDeviceCards(deviceAggregates) {
       if (!deviceAggregates || deviceAggregates.length === 0) {
-        return \`<div class="stats-grid" style="grid-template-columns:1fr">
+        return \`<div class="stats-grid">
           <div class="stat-card"><div class="stat-label">Sem dados por device</div>
           <div class="stat-value muted">—</div></div></div>\`
       }
-      const header = \`<div class="device-row-header">
-        <div class="device-row-header-cell"></div>
-        \${CARD_META.map(m => \`<div class="device-row-header-cell">\${m.label}</div>\`).join('')}
-      </div>\`
       const rows = deviceAggregates.map(d => {
         const name = deviceLabelForChart(d.deviceId)
         const cells = CARD_META.map(m => \`
           <div class="stat-card" data-accent="\${m.accent}">
+            <div class="stat-label"><i class="stat-icon">\${m.icon}</i>\${m.label}</div>
             <div class="stat-value-row">
               <span class="stat-value">\${cardVal(m.key, d)}</span>
             </div>
@@ -721,7 +707,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
           \${cells}
         </div>\`
       }).join('')
-      return \`<div class="device-section">\${header}\${rows}</div>\`
+      return \`<div class="device-section">\${rows}</div>\`
     }
 
     function renderSummaryCards(cur, prev) {
