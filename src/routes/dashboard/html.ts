@@ -228,14 +228,20 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .stat-card[data-accent="yellow"] .stat-icon-bg { color: #d29922; }
     .stat-card[data-accent="purple"] .stat-icon-bg { color: #bc8cff; }
     .stat-card[data-accent="slate"]  .stat-icon-bg { color: #8b949e; }
+    .stat-card[data-accent="blue"]   .stat-label { color: #388bfd; }
+    .stat-card[data-accent="teal"]   .stat-label { color: #2dd4bf; }
+    .stat-card[data-accent="green"]  .stat-label { color: #3fb950; }
+    .stat-card[data-accent="yellow"] .stat-label { color: #d29922; }
+    .stat-card[data-accent="purple"] .stat-label { color: #bc8cff; }
+    .stat-card[data-accent="slate"]  .stat-label { color: #8b949e; }
     .stat-icon-bg {
       position: absolute;
-      bottom: -10px;
+      bottom: -8px;
       left: 6px;
       font-size: 72px;
       font-style: normal;
       line-height: 1;
-      opacity: 0.12;
+      opacity: 0.22;
       pointer-events: none;
       user-select: none;
     }
@@ -274,9 +280,9 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       padding: 0 4px;
     }
     .device-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: #8b949e;
+      font-size: 15px;
+      font-weight: 700;
+      color: #e6edf3;
       font-family: ui-monospace, monospace;
       white-space: nowrap;
       overflow: hidden;
@@ -704,14 +710,13 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       return \`<div class="stats-grid">\${cells}</div>\`
     }
 
-    function renderDeviceCards(deviceAggregates) {
+    function renderDeviceCards(deviceAggregates, cur) {
       if (!deviceAggregates || deviceAggregates.length === 0) {
         return \`<div class="stats-grid">
           <div class="stat-card"><div class="stat-label">Sem dados por device</div>
           <div class="stat-value muted">—</div></div></div>\`
       }
-      const rows = deviceAggregates.map(d => {
-        const name = deviceLabelForChart(d.deviceId)
+      function makeDeviceRow(label, d) {
         const cells = CARD_META.map(m => \`
           <div class="stat-card" data-accent="\${m.accent}">
             <i class="stat-icon-bg">\${m.icon}</i>
@@ -721,17 +726,23 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
             </div>
           </div>\`).join('')
         return \`<div class="device-row">
-          <div class="device-row-label"><span class="device-name" title="\${esc(name)}">\${esc(name)}</span></div>
+          <div class="device-row-label">\${label}</div>
           \${cells}
         </div>\`
+      }
+      const totalRow = makeDeviceRow('', cur)
+      const rows = deviceAggregates.map(d => {
+        const name = deviceLabelForChart(d.deviceId)
+        const lbl = \`<span class="device-name" title="\${esc(name)}">\${esc(name)}</span>\`
+        return makeDeviceRow(lbl, d)
       }).join('')
-      return \`<div class="device-section">\${rows}</div>\`
+      return \`<div class="device-section">\${totalRow}\${rows}</div>\`
     }
 
     function renderSummaryCards(cur, prev) {
       const el = document.getElementById('summary-cards')
       if (currentChartGroup === 'device') {
-        el.innerHTML = renderDeviceCards(cur.deviceAggregates)
+        el.innerHTML = renderDeviceCards(cur.deviceAggregates, cur)
       } else {
         el.innerHTML = renderTotalCards(cur, prev)
       }
