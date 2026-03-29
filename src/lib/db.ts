@@ -243,16 +243,19 @@ export function queryRecentRequests(
 
 export interface DeviceWithRoute {
   device_id: string
-  name: string
+  name: string | null
   route: string | null
 }
 
 export function getDevices(): Array<DeviceWithRoute> {
   return getDb()
     .prepare(
-      `SELECT d.device_id, d.name,
-              (SELECT route FROM request_logs WHERE device_id = d.device_id AND route IS NOT NULL ORDER BY timestamp DESC LIMIT 1) AS route
-       FROM devices d ORDER BY d.name ASC`,
+      `SELECT r.device_id,
+              d.name,
+              (SELECT route FROM request_logs WHERE device_id = r.device_id AND route IS NOT NULL ORDER BY timestamp DESC LIMIT 1) AS route
+       FROM (SELECT DISTINCT device_id FROM request_logs WHERE device_id IS NOT NULL) r
+       LEFT JOIN devices d ON d.device_id = r.device_id
+       ORDER BY d.name ASC, r.device_id ASC`,
     )
     .all() as Array<DeviceWithRoute>
 }
