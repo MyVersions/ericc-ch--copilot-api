@@ -62,9 +62,9 @@ export function logRequest(info: RequestLogInfo): void {
   const duration = ansi.dim(formatDuration(info.durationMs))
 
   const sizeKb =
-    info.requestSizeKb !== undefined
-      ? ansi.cyan(`${info.requestSizeKb.toFixed(1)}kb`)
-      : undefined
+    info.requestSizeKb !== undefined ?
+      ansi.cyan(`${info.requestSizeKb.toFixed(1)}kb`)
+    : undefined
 
   const parts = [
     time,
@@ -72,10 +72,12 @@ export function logRequest(info: RequestLogInfo): void {
     info.path,
     status,
     sizeKb,
-    info.inputTokens !== undefined && info.outputTokens !== undefined
-      ? ansi.yellow(`↑${formatTokens(info.inputTokens)} ↓${formatTokens(info.outputTokens)}`)
-      : undefined,
-    info.deviceId ? ansi.dim(`device:${info.deviceId.slice(0, 8)}`) : undefined,
+    info.inputTokens !== undefined && info.outputTokens !== undefined ?
+      ansi.yellow(
+        `↑${formatTokens(info.inputTokens)} ↓${formatTokens(info.outputTokens)}`,
+      )
+    : undefined,
+    info.deviceId ? ansi.dim(info.deviceId) : undefined,
     info.model ? ansi.magenta(info.model) : undefined,
     duration,
   ].filter((p) => p !== undefined)

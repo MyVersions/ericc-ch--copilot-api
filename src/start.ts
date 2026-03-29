@@ -85,10 +85,18 @@ export async function runServer(options: RunServerOptions): Promise<void> {
       },
     )
 
+    const deviceName = await consola.prompt(
+      "Enter a name to identify this machine (used for usage tracking)",
+      { type: "text", default: "default" },
+    )
+
+    const authToken =
+      !deviceName || deviceName.trim() === "" ? "dummy" : deviceName.trim()
+
     const command = generateEnvScript(
       {
         ANTHROPIC_BASE_URL: serverUrl,
-        ANTHROPIC_AUTH_TOKEN: "dummy",
+        ANTHROPIC_AUTH_TOKEN: authToken,
         ANTHROPIC_MODEL: selectedModel,
         ANTHROPIC_DEFAULT_SONNET_MODEL: selectedModel,
         ANTHROPIC_SMALL_FAST_MODEL: selectedSmallModel,
