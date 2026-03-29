@@ -272,7 +272,7 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       margin-bottom: 12px;
     }
     .device-row-label {
-      width: 150px;
+      width: 160px;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -280,14 +280,12 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       padding: 0 4px;
     }
     .device-name {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 700;
       color: #e6edf3;
       font-family: ui-monospace, monospace;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 142px;
+      word-break: break-all;
+      overflow-wrap: anywhere;
     }
     .device-row .stat-card { padding: 10px 14px; }
     .device-row .stat-value { font-size: 18px; }
@@ -407,10 +405,10 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
 
     function resolveDeviceLabel(device_id) {
       const entry = deviceMap.get(device_id)
-      if (!entry) return device_id.slice(0, 8)
+      if (!entry) return device_id
       if (entry.name) return entry.name
       if (entry.route === 'openai') return 'openclaw'
-      return device_id.slice(0, 8)
+      return device_id
     }
 
     function deviceLabel(device_id) {
