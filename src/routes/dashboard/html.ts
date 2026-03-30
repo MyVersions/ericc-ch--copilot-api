@@ -266,18 +266,19 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
     .device-section { margin-bottom: 28px; }
     .device-row {
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .device-row-cards {
+      display: flex;
       flex-wrap: wrap;
-      align-items: flex-start;
       gap: 12px;
-      margin-bottom: 12px;
     }
     .device-row-label {
-      width: 160px;
-      flex-shrink: 0;
       display: flex;
       align-items: center;
-      min-height: 80px;
-      padding: 0 4px;
+      padding: 0 2px;
     }
     .device-name {
       font-size: 13px;
@@ -407,7 +408,6 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
       const entry = deviceMap.get(device_id)
       if (!entry) return device_id
       if (entry.name) return entry.name
-      if (entry.route === 'openai') return 'openclaw'
       return device_id
     }
 
@@ -742,8 +742,8 @@ export const DASHBOARD_HTML = /* html */ `<!DOCTYPE html>
             </div>
           </div>\`).join('')
         return \`<div class="\${cls}">
-          <div class="device-row-label">\${label}</div>
-          \${cells}
+          \${label ? \`<div class="device-row-label">\${label}</div>\` : ''}
+          <div class="device-row-cards">\${cells}</div>
         </div>\`
       }
       const totalRow = makeDeviceRow('', cur, true)
