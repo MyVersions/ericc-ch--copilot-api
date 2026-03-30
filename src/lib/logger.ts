@@ -1,5 +1,7 @@
 import type { MiddlewareHandler } from "hono"
 
+import { state } from "~/lib/state"
+
 // Requests marked here are logged by their handlers (with token info)
 // The middleware skips these to avoid duplicate lines
 const handlerLoggedRequests = new WeakSet<Request>()
@@ -90,6 +92,8 @@ export const requestLogger: MiddlewareHandler = async (c, next) => {
   await next()
 
   if (handlerLoggedRequests.has(c.req.raw)) return
+
+  if (c.req.path.startsWith("/dashboard/api") && !state.dashboardLogs) return
 
   logRequest({
     method: c.req.method,

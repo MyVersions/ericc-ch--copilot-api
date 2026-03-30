@@ -24,6 +24,7 @@ interface RunServerOptions {
   githubToken?: string
   claudeCode: boolean
   showToken: boolean
+  dashboardLogs: boolean
   proxyEnv: boolean
 }
 
@@ -46,6 +47,7 @@ export async function runServer(options: RunServerOptions): Promise<void> {
   state.rateLimitSeconds = options.rateLimit
   state.rateLimitWait = options.rateLimitWait
   state.showToken = options.showToken
+  state.dashboardLogs = options.dashboardLogs
 
   await ensurePaths()
   await cacheVSCodeVersion()
@@ -187,6 +189,12 @@ export const start = defineCommand({
       default: false,
       description: "Show GitHub and Copilot tokens on fetch and refresh",
     },
+    "dashboard-logs": {
+      type: "boolean",
+      default: false,
+      description:
+        "Enable logging of dashboard API requests (/dashboard/api/*)",
+    },
     "proxy-env": {
       type: "boolean",
       default: false,
@@ -209,6 +217,7 @@ export const start = defineCommand({
       githubToken: args["github-token"],
       claudeCode: args["claude-code"],
       showToken: args["show-token"],
+      dashboardLogs: args["dashboard-logs"],
       proxyEnv: args["proxy-env"],
     })
   },
