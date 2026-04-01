@@ -47,6 +47,7 @@ export const LOG_CONFIG = {
     size: (s: string) => ansi.cyan(s),
     tokens: (s: string) => ansi.yellow(s),
     device: (s: string) => ansi.dim(s),
+    deviceName: (s: string) => ansi.cyan(s),
     model: (s: string) => ansi.magenta(s),
     time: (s: string) => ansi.dim(s),
   },
@@ -144,11 +145,18 @@ export function formatTokenCount(n: number, prefix: "↑" | "↓"): string {
  *   "claude-code:ik_iakan@orthanc"   → "         claude-code:ik_iakan@orthanc   "
  *   "gemini:bewiser.assistant@erebor" → "     gemini:bewiser.assistant@erebor    "
  */
+interface FormatDeviceOptions {
+  leftWidth: number
+  rightWidth: number
+  colorName?: (s: string) => string
+  colorHost?: (s: string) => string
+}
+
 export function formatDevice(
   deviceId: string | undefined,
-  leftWidth: number,
-  rightWidth: number,
+  options: FormatDeviceOptions,
 ): string {
+  const { leftWidth, rightWidth, colorName, colorHost } = options
   if (deviceId === undefined) {
     return " ".repeat(leftWidth + 1 + rightWidth)
   }
@@ -160,7 +168,10 @@ export function formatDevice(
   const leftField = padLeft(leftRaw, leftWidth)
   const rightField = padRight(rightRaw, rightWidth)
 
-  return `${leftField}@${rightField}`
+  const coloredLeft = colorName ? colorName(leftField) : leftField
+  const coloredAt = colorHost ? colorHost("@") : "@"
+  const coloredRight = colorHost ? colorHost(rightField) : rightField
+  return `${coloredLeft}${coloredAt}${coloredRight}`
 }
 
 /**
@@ -224,9 +235,12 @@ export function logRequest(info: RequestLogInfo): void {
       c.tokens(formatTokenCount(info.outputTokens, "↓"))
     : " ".repeat(w.tokens)
 
-  const deviceField = c.device(
-    formatDevice(info.deviceId, w.deviceLeft, w.deviceRight),
-  )
+  const deviceField = formatDevice(info.deviceId, {
+    leftWidth: w.deviceLeft,
+    rightWidth: w.deviceRight,
+    colorName: c.deviceName,
+    colorHost: c.device,
+  })
 
   const modelField =
     info.model !== undefined ?

@@ -180,42 +180,43 @@ describe("formatTokenCount", () => {
 describe("formatDevice", () => {
   const L = 29
   const R = 10
+  const opts = { leftWidth: L, rightWidth: R }
 
   test("total width = leftWidth + 1 + rightWidth", () => {
-    expect(formatDevice("openclaw@orthanc", L, R).length).toBe(L + 1 + R)
-    expect(formatDevice("claude-code:ik_iakan@orthanc", L, R).length).toBe(
+    expect(formatDevice("openclaw@orthanc", opts).length).toBe(L + 1 + R)
+    expect(formatDevice("claude-code:ik_iakan@orthanc", opts).length).toBe(
       L + 1 + R,
     )
-    expect(formatDevice(undefined, L, R).length).toBe(L + 1 + R)
+    expect(formatDevice(undefined, opts).length).toBe(L + 1 + R)
   })
 
   test("@ sign is always at index leftWidth", () => {
-    const result1 = formatDevice("openclaw@orthanc", L, R)
+    const result1 = formatDevice("openclaw@orthanc", opts)
     expect(result1[L]).toBe("@")
 
-    const result2 = formatDevice("claude-code:ik_iakan@orthanc", L, R)
+    const result2 = formatDevice("claude-code:ik_iakan@orthanc", opts)
     expect(result2[L]).toBe("@")
 
-    const result3 = formatDevice("gemini:bewiser.assistant@erebor", L, R)
+    const result3 = formatDevice("gemini:bewiser.assistant@erebor", opts)
     expect(result3[L]).toBe("@")
   })
 
   test("left part is right-aligned (spaces on the left)", () => {
     // "openclaw" is 8 chars, leftWidth=29 → 21 leading spaces
-    const result = formatDevice("openclaw@orthanc", L, R)
+    const result = formatDevice("openclaw@orthanc", opts)
     expect(result.startsWith(" ".repeat(21))).toBe(true)
     expect(result.slice(21, L)).toBe("openclaw")
   })
 
   test("right part is left-aligned (spaces on the right)", () => {
     // "orthanc" is 7 chars, rightWidth=10 → 3 trailing spaces
-    const result = formatDevice("openclaw@orthanc", L, R)
+    const result = formatDevice("openclaw@orthanc", opts)
     expect(result.slice(L + 1)).toBe("orthanc   ")
   })
 
   test("splits on LAST @ when multiple @ present", () => {
     // "a@b@c" → left="a@b", right="c"
-    const result = formatDevice("a@b@c", L, R)
+    const result = formatDevice("a@b@c", opts)
     expect(result[L]).toBe("@")
     expect(result.trimStart().startsWith("a@b@c")).toBe(true) // full trimmed string starts with left@right
     // The right part after position L is "c" + spaces
@@ -225,7 +226,7 @@ describe("formatDevice", () => {
   })
 
   test("no @ in input: entire string is left part, right part empty", () => {
-    const result = formatDevice("noatsign", L, R)
+    const result = formatDevice("noatsign", opts)
     expect(result[L]).toBe("@")
     expect(result.slice(0, L).trimStart()).toBe("noatsign")
     // right is all spaces
@@ -233,14 +234,14 @@ describe("formatDevice", () => {
   })
 
   test("undefined returns all spaces of total width", () => {
-    const result = formatDevice(undefined, L, R)
+    const result = formatDevice(undefined, opts)
     expect(result).toBe(" ".repeat(L + 1 + R))
   })
 
   test("left overflow: truncated with ellipsis, @ still at leftWidth", () => {
     // left part longer than leftWidth → truncate with "…"
     const longLeft = "a".repeat(L + 5)
-    const result = formatDevice(`${longLeft}@host`, L, R)
+    const result = formatDevice(`${longLeft}@host`, opts)
     expect(result[L]).toBe("@")
     expect(result.slice(0, L)).toBe("a".repeat(L - 1) + "…")
   })
@@ -248,20 +249,20 @@ describe("formatDevice", () => {
   test("right overflow: truncated with ellipsis (total width = L+2+R due to padRight asymmetry)", () => {
     // right part longer than rightWidth → padRight appends "…" after width chars = width+1 chars
     const longRight = "b".repeat(R + 5)
-    const result = formatDevice(`user@${longRight}`, L, R)
+    const result = formatDevice(`user@${longRight}`, opts)
     expect(result[L]).toBe("@")
     expect(result.slice(L + 1)).toBe("b".repeat(R) + "…") // R+1 chars (padRight asymmetry)
   })
 
   test("spec examples produce correct output", () => {
     // From the JSDoc examples (leftWidth=29, rightWidth=10):
-    expect(formatDevice("openclaw@orthanc", L, R)).toBe(
+    expect(formatDevice("openclaw@orthanc", opts)).toBe(
       "                     openclaw@orthanc   ",
     )
-    expect(formatDevice("claude-code:ik_iakan@orthanc", L, R)).toBe(
+    expect(formatDevice("claude-code:ik_iakan@orthanc", opts)).toBe(
       "         claude-code:ik_iakan@orthanc   ",
     )
-    expect(formatDevice("gemini:bewiser.assistant@erebor", L, R)).toBe(
+    expect(formatDevice("gemini:bewiser.assistant@erebor", opts)).toBe(
       "     gemini:bewiser.assistant@erebor    ",
     )
   })
