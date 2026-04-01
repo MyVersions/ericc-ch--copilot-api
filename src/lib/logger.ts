@@ -33,7 +33,7 @@ export const LOG_CONFIG = {
     device: 40,
     deviceLeft: 29,
     deviceRight: 10,
-    model: 25,
+    model: 20,
     time: 8,
   },
   colors: {
@@ -101,10 +101,9 @@ export function formatSize(kb: number): string {
   }
 
   // [4 int right][.][1 dec][2-char unit] = 8
-  const intPart = Math.floor(value)
-  const decPart = Math.round((value - intPart) * 10)
-  const intStr = String(intPart).padStart(4)
-  return `${intStr}.${decPart}${unit}`
+  // toFixed(1) handles carry correctly (e.g. 142.96 → "143.0", not "142.10")
+  const [intStr, decStr] = value.toFixed(1).split(".")
+  return `${intStr.padStart(4)}.${decStr}${unit}`
 }
 
 /**
