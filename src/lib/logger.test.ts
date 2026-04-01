@@ -5,7 +5,8 @@ import {
   padLeft,
   formatDate,
   formatSize,
-  formatTokens,
+  formatTokenCount,
+  formatDevice,
   formatDuration,
   LOG_CONFIG,
 } from "./logger"
@@ -118,58 +119,151 @@ describe("formatSize", () => {
   })
 })
 
-// ─── formatTokens ────────────────────────────────────────────────────────────
+// ─── formatTokenCount ────────────────────────────────────────────────────────
 
-describe("formatTokens", () => {
-  test("returns exactly 9 characters for small values", () => {
-    expect(formatTokens(88, "↑").length).toBe(9)
+describe("formatTokenCount", () => {
+  test("returns exactly 10 characters for small values", () => {
+    expect(formatTokenCount(88, "↑").length).toBe(10)
   })
 
-  test("returns exactly 9 characters for k values", () => {
-    expect(formatTokens(128100, "↑").length).toBe(9)
+  test("returns exactly 10 characters for thousands", () => {
+    expect(formatTokenCount(144035, "↑").length).toBe(10)
   })
 
-  test("returns exactly 9 characters for M values", () => {
-    expect(formatTokens(28100000, "↑").length).toBe(9)
+  test("returns exactly 10 characters for 6-digit values", () => {
+    expect(formatTokenCount(999999, "↑").length).toBe(10)
   })
 
-  test("formats small value (< 1000) with leading space and no suffix", () => {
-    // spec: " ↑  88   " — space + ↑ + right-4 + space + space + space
-    // structure: [space][↑][4 int right]['  '][' ']
-    // 88 → "  88" in 4 chars right → " ↑  88   "
-    expect(formatTokens(88, "↑")).toBe(" ↑  88   ")
+  test("formats small value right-aligned in 7-char zone, no separator", () => {
+    // " ↑      88"  — space + ↑ + space + "     88" (7 chars)
+    expect(formatTokenCount(88, "↑")).toBe(" ↑      88")
   })
 
-  test("formats single digit value correctly", () => {
-    // 5 → "   5" in 4 chars right → " ↑   5   "
-    expect(formatTokens(5, "↑")).toBe(" ↑   5   ")
+  test("formats single digit", () => {
+    expect(formatTokenCount(5, "↑")).toBe(" ↑       5")
   })
 
-  test("formats k value with one decimal", () => {
-    // 128100 → 128.1k → " ↑ 128.1k"
-    expect(formatTokens(128100, "↑")).toBe(" ↑ 128.1k")
+  test("formats exactly 1000 with separator", () => {
+    // 1000 → "1.000" = 5 chars, right-aligned in 7 → "  1.000"
+    expect(formatTokenCount(1000, "↑")).toBe(" ↑   1.000")
   })
 
-  test("formats M value with one decimal", () => {
-    // 28100000 → 28.1M → " ↑  28.1M"
-    expect(formatTokens(28100000, "↑")).toBe(" ↑  28.1M")
+  test("formats thousands with dot separator", () => {
+    // 144035 → "144.035" = 7 chars, fits exactly in 7
+    expect(formatTokenCount(144035, "↑")).toBe(" ↑ 144.035")
+  })
+
+  test("formats 10900 correctly", () => {
+    // 10900 → "10.900" = 6 chars, right-aligned in 7 → " 10.900"
+    expect(formatTokenCount(10900, "↓")).toBe(" ↓  10.900")
+  })
+
+  test("formats 9999999 (max 7-char case)", () => {
+    // 9999999 → "9.999.999" = 9 chars — overflow, total > 10
+    // spec says: overflow allowed for degenerate case, no truncation
+    expect(formatTokenCount(9999999, "↑").startsWith(" ↑")).toBe(true)
+    expect(formatTokenCount(9999999, "↑")).toContain("9.999.999")
   })
 
   test("uses ↓ prefix for output tokens", () => {
-    expect(formatTokens(42, "↓")).toBe(" ↓  42   ")
+    expect(formatTokenCount(130, "↓")).toBe(" ↓     130")
   })
 
-  test("decimal point is always at position 6 (0-indexed)", () => {
-    // " ↑  88   " → no dot, but the 'dot position' slot is space at index 6
-    // " ↑ 128.1k" → dot at index 6
-    // " ↑  28.1M" → dot at index 6
-    const s1 = formatTokens(128100, "↑") // " ↑ 128.1k"
-    const s2 = formatTokens(28100000, "↑") // " ↑  28.1M"
-    expect(s1[6]).toBe(".")
-    expect(s2[6]).toBe(".")
-    // for small values, position 6 is a space (no decimal)
-    const s3 = formatTokens(88, "↑") // " ↑  88   "
-    expect(s3[6]).toBe(" ")
+  test("the ↑/↓ symbol is always at index 1", () => {
+    expect(formatTokenCount(88, "↑")[1]).toBe("↑")
+    expect(formatTokenCount(88, "↓")[1]).toBe("↓")
+  })
+})
+
+// ─── formatDevice ─────────────────────────────────────────────────────────────
+
+describe("formatDevice", () => {
+  const L = 29
+  const R = 10
+
+  test("total width = leftWidth + 1 + rightWidth", () => {
+    expect(formatDevice("openclaw@orthanc", L, R).length).toBe(L + 1 + R)
+    expect(formatDevice("claude-code:ik_iakan@orthanc", L, R).length).toBe(
+      L + 1 + R,
+    )
+    expect(formatDevice(undefined, L, R).length).toBe(L + 1 + R)
+  })
+
+  test("@ sign is always at index leftWidth", () => {
+    const result1 = formatDevice("openclaw@orthanc", L, R)
+    expect(result1[L]).toBe("@")
+
+    const result2 = formatDevice("claude-code:ik_iakan@orthanc", L, R)
+    expect(result2[L]).toBe("@")
+
+    const result3 = formatDevice("gemini:bewiser.assistant@erebor", L, R)
+    expect(result3[L]).toBe("@")
+  })
+
+  test("left part is right-aligned (spaces on the left)", () => {
+    // "openclaw" is 8 chars, leftWidth=29 → 21 leading spaces
+    const result = formatDevice("openclaw@orthanc", L, R)
+    expect(result.startsWith(" ".repeat(21))).toBe(true)
+    expect(result.slice(21, L)).toBe("openclaw")
+  })
+
+  test("right part is left-aligned (spaces on the right)", () => {
+    // "orthanc" is 7 chars, rightWidth=10 → 3 trailing spaces
+    const result = formatDevice("openclaw@orthanc", L, R)
+    expect(result.slice(L + 1)).toBe("orthanc   ")
+  })
+
+  test("splits on LAST @ when multiple @ present", () => {
+    // "a@b@c" → left="a@b", right="c"
+    const result = formatDevice("a@b@c", L, R)
+    expect(result[L]).toBe("@")
+    expect(result.trimStart().startsWith("a@b@c")).toBe(true) // full trimmed string starts with left@right
+    // The right part after position L is "c" + spaces
+    expect(result.slice(L + 1).trimEnd()).toBe("c")
+    // The left part ending at position L-1 ends with "a@b"
+    expect(result.slice(0, L).trimStart()).toBe("a@b")
+  })
+
+  test("no @ in input: entire string is left part, right part empty", () => {
+    const result = formatDevice("noatsign", L, R)
+    expect(result[L]).toBe("@")
+    expect(result.slice(0, L).trimStart()).toBe("noatsign")
+    // right is all spaces
+    expect(result.slice(L + 1)).toBe(" ".repeat(R))
+  })
+
+  test("undefined returns all spaces of total width", () => {
+    const result = formatDevice(undefined, L, R)
+    expect(result).toBe(" ".repeat(L + 1 + R))
+  })
+
+  test("left overflow: truncated with ellipsis, @ still at leftWidth", () => {
+    // left part longer than leftWidth → truncate with "…"
+    const longLeft = "a".repeat(L + 5)
+    const result = formatDevice(`${longLeft}@host`, L, R)
+    expect(result[L]).toBe("@")
+    expect(result.slice(0, L)).toBe("a".repeat(L - 1) + "…")
+  })
+
+  test("right overflow: truncated with ellipsis (total width = L+2+R due to padRight asymmetry)", () => {
+    // right part longer than rightWidth → padRight appends "…" after width chars = width+1 chars
+    const longRight = "b".repeat(R + 5)
+    const result = formatDevice(`user@${longRight}`, L, R)
+    expect(result[L]).toBe("@")
+    expect(result.slice(L + 1)).toBe("b".repeat(R) + "…") // R+1 chars (padRight asymmetry)
+  })
+
+  test("spec examples produce correct output", () => {
+    // From the JSDoc examples (leftWidth=29, rightWidth=10):
+    expect(formatDevice("openclaw@orthanc", L, R)).toBe(
+      "                     openclaw@orthanc   ",
+    )
+    expect(formatDevice("claude-code:ik_iakan@orthanc", L, R)).toBe(
+      "         claude-code:ik_iakan@orthanc   ",
+    )
+    expect(formatDevice("gemini:bewiser.assistant@erebor", L, R)).toBe(
+      "     gemini:bewiser.assistant@erebor    ",
+    )
   })
 })
 
@@ -224,6 +318,8 @@ describe("LOG_CONFIG", () => {
       "size",
       "tokens",
       "device",
+      "deviceLeft",
+      "deviceRight",
       "model",
       "time",
     ]
@@ -238,8 +334,10 @@ describe("LOG_CONFIG", () => {
     expect(LOG_CONFIG.widths.path).toBe(25)
     expect(LOG_CONFIG.widths.status).toBe(4)
     expect(LOG_CONFIG.widths.size).toBe(8)
-    expect(LOG_CONFIG.widths.tokens).toBe(9)
+    expect(LOG_CONFIG.widths.tokens).toBe(10)
     expect(LOG_CONFIG.widths.device).toBe(40)
+    expect(LOG_CONFIG.widths.deviceLeft).toBe(29)
+    expect(LOG_CONFIG.widths.deviceRight).toBe(10)
     expect(LOG_CONFIG.widths.model).toBe(25)
     expect(LOG_CONFIG.widths.time).toBe(8)
   })
@@ -267,7 +365,6 @@ describe("LOG_CONFIG", () => {
   test("all color values are functions", () => {
     for (const [_key, fn] of Object.entries(LOG_CONFIG.colors)) {
       expect(typeof fn).toBe("function")
-      // color functions must return strings
       const result = (fn as (s: string) => string)("test")
       expect(typeof result).toBe("string")
     }

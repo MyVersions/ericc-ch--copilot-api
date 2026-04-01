@@ -29,8 +29,10 @@ export const LOG_CONFIG = {
     path: 25,
     status: 4,
     size: 8,
-    tokens: 9,
+    tokens: 10,
     device: 40,
+    deviceLeft: 29,
+    deviceRight: 10,
     model: 25,
     time: 8,
   },
@@ -106,37 +108,60 @@ export function formatSize(kb: number): string {
 }
 
 /**
- * Token count — exactly 9 chars: `[space][↑/↓][4 int right][.or space][1 dec or space][1-char unit or space]`
+ * Formats `n` as an integer with dot-as-thousands-separator, right-aligned
+ * in a 7-char zone, prefixed by ` ↑ ` or ` ↓ `.
  *
- * Units: ` ` (< 1 000), `k` (≥ 1 000), `M` (≥ 1 000 000).
+ * Total width: 10 chars = 1(space) + 1(prefix) + 1(space) + 7(number zone)
+ *
+ * Values ≥ 1,000,000 will exceed 10 chars; no truncation is applied.
+ *
+ * Examples:
+ *   formatTokenCount(88, "↑")     → " ↑      88"
+ *   formatTokenCount(144035, "↑") → " ↑ 144.035"
+ *   formatTokenCount(10900, "↓")  → " ↓  10.900"
  */
-export function formatTokens(n: number, prefix: "↑" | "↓"): string {
-  let intStr: string
-  let dot: string
-  let dec: string
-  let unit: string
+export function formatTokenCount(n: number, prefix: "↑" | "↓"): string {
+  const formatted = String(n).replaceAll(/\B(?=(?:\d{3})+(?!\d))/g, ".")
+  const numberZone = formatted.padStart(7)
+  return ` ${prefix} ${numberZone}`
+}
 
-  if (n >= 1_000_000) {
-    const v = n / 1_000_000
-    intStr = String(Math.floor(v)).padStart(4)
-    dot = "."
-    dec = String(Math.round((v - Math.floor(v)) * 10))
-    unit = "M"
-  } else if (n >= 1_000) {
-    const v = n / 1_000
-    intStr = String(Math.floor(v)).padStart(4)
-    dot = "."
-    dec = String(Math.round((v - Math.floor(v)) * 10))
-    unit = "k"
-  } else {
-    intStr = String(n).padStart(4)
-    dot = " "
-    dec = " "
-    unit = " "
+/**
+ * Formats a device identifier so the `@` always appears at index `leftWidth`.
+ *
+ * Splits on the LAST `@`. The left part is right-aligned in `leftWidth` chars;
+ * the right part is left-aligned in `rightWidth` chars.
+ *
+ * Total width = leftWidth + 1 + rightWidth.
+ *
+ * Left overflow: truncated from the right with `…` (preserves the beginning).
+ * Right overflow: truncated from the right with `…`.
+ * No `@` in input: entire string treated as left part; right part is empty.
+ * undefined: returns spaces of total width.
+ * Note: right overflow produces width+1 chars (padRight asymmetry) — total may be leftWidth+2+rightWidth.
+ *
+ * Examples (leftWidth=29, rightWidth=10):
+ *   "openclaw@orthanc"               → "                     openclaw@orthanc   "
+ *   "claude-code:ik_iakan@orthanc"   → "         claude-code:ik_iakan@orthanc   "
+ *   "gemini:bewiser.assistant@erebor" → "     gemini:bewiser.assistant@erebor    "
+ */
+export function formatDevice(
+  deviceId: string | undefined,
+  leftWidth: number,
+  rightWidth: number,
+): string {
+  if (deviceId === undefined) {
+    return " ".repeat(leftWidth + 1 + rightWidth)
   }
 
-  // [space][prefix][4 int][dot][dec][unit] = 1+1+4+1+1+1 = 9
-  return ` ${prefix}${intStr}${dot}${dec}${unit}`
+  const atIndex = deviceId.lastIndexOf("@")
+  const leftRaw = atIndex === -1 ? deviceId : deviceId.slice(0, atIndex)
+  const rightRaw = atIndex === -1 ? "" : deviceId.slice(atIndex + 1)
+
+  const leftField = padLeft(leftRaw, leftWidth)
+  const rightField = padRight(rightRaw, rightWidth)
+
+  return `${leftField}@${rightField}`
 }
 
 /**
@@ -192,18 +217,17 @@ export function logRequest(info: RequestLogInfo): void {
 
   const inputField =
     info.inputTokens !== undefined ?
-      c.tokens(formatTokens(info.inputTokens, "↑"))
+      c.tokens(formatTokenCount(info.inputTokens, "↑"))
     : " ".repeat(w.tokens)
 
   const outputField =
     info.outputTokens !== undefined ?
-      c.tokens(formatTokens(info.outputTokens, "↓"))
+      c.tokens(formatTokenCount(info.outputTokens, "↓"))
     : " ".repeat(w.tokens)
 
-  const deviceField =
-    info.deviceId !== undefined ?
-      c.device(padRight(info.deviceId, w.device))
-    : " ".repeat(w.device)
+  const deviceField = c.device(
+    formatDevice(info.deviceId, w.deviceLeft, w.deviceRight),
+  )
 
   const modelField =
     info.model !== undefined ?
