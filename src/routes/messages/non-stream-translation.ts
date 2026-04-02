@@ -1,3 +1,4 @@
+import { state } from "~/lib/state"
 import {
   type ChatCompletionResponse,
   type ChatCompletionsPayload,
@@ -7,8 +8,6 @@ import {
   type Tool,
   type ToolCall,
 } from "~/services/copilot/create-chat-completions"
-
-import { state } from "~/lib/state"
 
 import {
   type AnthropicAssistantContentBlock,
@@ -65,20 +64,28 @@ function translateModelName(model: string): string {
     // Normalize input: replace traços with pontos to match available models format
     // "claude-sonnet-4-6" → "claude-sonnet-4.6"
     const normalizedModel = model.replace(/-(\d+)$/, ".$1")
-    if (normalizedModel !== model && models.some((m) => m.id === normalizedModel)) {
+    if (
+      normalizedModel !== model
+      && models.some((m) => m.id === normalizedModel)
+    ) {
       return normalizedModel
     }
 
     // Family match — find an available model with same version family prefix
     // e.g. "claude-sonnet-4-6" or "claude-sonnet-4.6" → find "claude-sonnet-4.6"
-    for (const familyPrefix of ["claude-sonnet-4", "claude-opus-4", "claude-haiku-4"]) {
+    for (const familyPrefix of [
+      "claude-sonnet-4",
+      "claude-opus-4",
+      "claude-haiku-4",
+    ]) {
       if (
         model.startsWith(`${familyPrefix}-`)
         || model.startsWith(`${familyPrefix}.`)
       ) {
         const match = models.find(
           (m) =>
-            m.id.startsWith(`${familyPrefix}.`) || m.id.startsWith(`${familyPrefix}-`),
+            m.id.startsWith(`${familyPrefix}.`)
+            || m.id.startsWith(`${familyPrefix}-`),
         )
         if (match) return match.id
       }

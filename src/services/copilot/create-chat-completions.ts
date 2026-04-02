@@ -46,7 +46,11 @@ export const createChatCompletions = async (
     return { result: events(response), requestId, isAgentCall }
   }
 
-  return { result: (await response.json()) as ChatCompletionResponse, requestId, isAgentCall }
+  return {
+    result: (await response.json()) as ChatCompletionResponse,
+    requestId,
+    isAgentCall,
+  }
 }
 
 // Streaming types

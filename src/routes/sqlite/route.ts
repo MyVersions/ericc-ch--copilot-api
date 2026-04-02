@@ -11,7 +11,7 @@ sqliteRoutes.get("/", (c) => c.html(SQLITE_HTML))
 sqliteRoutes.post("/api/query", async (c) => {
   const { sql } = await c.req.json<{ sql: string }>()
 
-  if (!sql?.trim()) {
+  if (!sql.trim()) {
     return c.json({ error: "SQL não pode ser vazio." }, 400)
   }
 
