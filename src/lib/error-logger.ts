@@ -70,6 +70,7 @@ export function setupErrorFileLogger(): void {
       const filepath = `${PATHS.LOGS_DIR}/error-${ts}-${seq}.txt`
 
       try {
+        fs.mkdirSync(PATHS.LOGS_DIR, { recursive: true })
         fs.writeFileSync(filepath, formatFull(log), "utf8")
       } catch {
         // Silently ignore — avoid infinite error loops
