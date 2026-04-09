@@ -6,7 +6,7 @@ const APP_DIR = path.join(os.homedir(), ".local", "share", "copilot-api")
 
 const GITHUB_TOKEN_PATH = path.join(APP_DIR, "github_token")
 const LOGS_DB_PATH = path.join(APP_DIR, "request_logs.db")
-const LOGS_DIR = path.join(process.cwd(), "volume", "logs")
+const LOGS_DIR = path.join(APP_DIR, "logs")
 
 export const PATHS = {
   APP_DIR,
