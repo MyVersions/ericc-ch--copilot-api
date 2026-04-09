@@ -8,17 +8,19 @@ import { handleCompletion } from "./handler"
 export const messageRoutes = new Hono()
 
 messageRoutes.post("/", async (c) => {
+  const body = await c.req.raw.clone().text()
   try {
     return await handleCompletion(c)
   } catch (error) {
-    return await forwardError(c, error)
+    return await forwardError(c, error, body)
   }
 })
 
 messageRoutes.post("/count_tokens", async (c) => {
+  const body = await c.req.raw.clone().text()
   try {
     return await handleCountTokens(c)
   } catch (error) {
-    return await forwardError(c, error)
+    return await forwardError(c, error, body)
   }
 })

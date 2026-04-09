@@ -22,6 +22,23 @@ function formatShort(log: LogObject): string {
   return status ? `HTTP ${status} – ${message}` : message
 }
 
+interface RequestInfo {
+  method: string
+  path: string
+  body: string
+  upstream?: unknown
+}
+
+function isRequestInfo(arg: unknown): arg is RequestInfo {
+  return (
+    typeof arg === "object"
+    && arg !== null
+    && "method" in arg
+    && "path" in arg
+    && "body" in arg
+  )
+}
+
 function formatFull(log: LogObject): string {
   const ts = new Date().toISOString()
   const lines: Array<string> = [`[${ts}] ERROR`, ""]
@@ -33,6 +50,11 @@ function formatFull(log: LogObject): string {
       if ("response" in arg) {
         const r = (arg as { response: Response }).response
         lines.push(`Response status: ${r.status}`)
+      }
+    } else if (isRequestInfo(arg)) {
+      lines.push(`Request: ${arg.method} ${arg.path}`, `Body: ${arg.body}`)
+      if (arg.upstream !== undefined) {
+        lines.push(`Upstream error: ${JSON.stringify(arg.upstream, null, 2)}`)
       }
     } else if (typeof arg === "object" && arg !== null) {
       lines.push(JSON.stringify(arg, null, 2))

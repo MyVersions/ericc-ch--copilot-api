@@ -12,8 +12,16 @@ export class HTTPError extends Error {
   }
 }
 
-export async function forwardError(c: Context, error: unknown) {
-  consola.error("Error occurred:", error)
+export async function forwardError(
+  c: Context,
+  error: unknown,
+  requestBody?: string,
+) {
+  const requestInfo = {
+    method: c.req.method,
+    path: c.req.path,
+    body: requestBody ?? "<not captured>",
+  }
 
   if (error instanceof HTTPError) {
     const errorText = await error.response.text()
@@ -23,7 +31,10 @@ export async function forwardError(c: Context, error: unknown) {
     } catch {
       errorJson = errorText
     }
-    consola.error("HTTP error:", errorJson)
+    consola.error("Error occurred:", error, {
+      ...requestInfo,
+      upstream: errorJson,
+    })
     return c.json(
       {
         error: {
@@ -35,6 +46,7 @@ export async function forwardError(c: Context, error: unknown) {
     )
   }
 
+  consola.error("Error occurred:", error, requestInfo)
   return c.json(
     {
       error: {

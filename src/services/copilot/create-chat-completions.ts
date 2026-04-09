@@ -1,4 +1,3 @@
-import consola from "consola"
 import { events } from "fetch-event-stream"
 import { randomUUID } from "node:crypto"
 
@@ -38,7 +37,6 @@ export const createChatCompletions = async (
   })
 
   if (!response.ok) {
-    consola.error("Failed to create chat completions", response)
     throw new HTTPError("Failed to create chat completions", response)
   }
 
