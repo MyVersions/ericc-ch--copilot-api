@@ -81,42 +81,62 @@ export async function handleCompletion(c: Context) {
 
   consola.debug("Streaming response from Copilot")
   markRequestLogged(c.req.raw)
-  return streamSSE(c, async (stream) => {
-    const { inputTokens, outputTokens, finishReason, accumulatedContent } =
-      await consumeAnthropicStream(result, stream, toolNameMap)
-    const durationMs = Date.now() - startTime
-    insertLog({
-      timestamp: startTime,
-      model: anthropicPayload.model,
-      device_id: deviceId,
-      session_id: sessionId,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      duration_ms: durationMs,
-      request_body: payloadJson,
-      response_body: accumulatedContent,
-      finish_reason: finishReason,
-      stream: true,
-      is_agent_call: isAgentCall,
-      cached_tokens: null,
-      request_id: requestId,
-      route: "anthropic",
-      tools_count: openAIPayload.tools?.length ?? 0,
-      accepted_prediction_tokens: null,
-      rejected_prediction_tokens: null,
-    })
-    logRequest({
-      method: c.req.method,
-      path: c.req.path,
-      status: 200,
-      durationMs,
-      requestSizeKb,
-      model: anthropicPayload.model,
-      deviceId,
-      inputTokens,
-      outputTokens,
-    })
-  })
+  return streamSSE(
+    c,
+    async (stream) => {
+      const { inputTokens, outputTokens, finishReason, accumulatedContent } =
+        await consumeAnthropicStream(result, stream, toolNameMap)
+      const durationMs = Date.now() - startTime
+      insertLog({
+        timestamp: startTime,
+        model: anthropicPayload.model,
+        device_id: deviceId,
+        session_id: sessionId,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        duration_ms: durationMs,
+        request_body: payloadJson,
+        response_body: accumulatedContent,
+        finish_reason: finishReason,
+        stream: true,
+        is_agent_call: isAgentCall,
+        cached_tokens: null,
+        request_id: requestId,
+        route: "anthropic",
+        tools_count: openAIPayload.tools?.length ?? 0,
+        accepted_prediction_tokens: null,
+        rejected_prediction_tokens: null,
+      })
+      logRequest({
+        method: c.req.method,
+        path: c.req.path,
+        status: 200,
+        durationMs,
+        requestSizeKb,
+        model: anthropicPayload.model,
+        deviceId,
+        inputTokens,
+        outputTokens,
+      })
+    },
+    async (error, stream) => {
+      consola.error("Stream error:", error, {
+        method: c.req.method,
+        path: c.req.path,
+        body: payloadJson,
+      })
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({
+          type: "error",
+          error: {
+            type: "api_error",
+            message: error.message,
+          },
+        }),
+      })
+    },
+  )
 }
 
 function handleNonStreaming(

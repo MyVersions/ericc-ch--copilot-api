@@ -314,6 +314,13 @@ function mapContent(
   return contentParts
 }
 
+function cleanInputSchema(
+  schema: AnthropicTool["input_schema"],
+): AnthropicTool["input_schema"] {
+  const { $schema, additionalProperties, ...clean } = schema
+  return clean
+}
+
 function translateAnthropicToolsToOpenAI(
   anthropicTools: Array<AnthropicTool> | undefined,
   toolNameMap: ToolNameMap,
@@ -326,7 +333,7 @@ function translateAnthropicToolsToOpenAI(
     function: {
       name: compressToolName(tool.name, toolNameMap),
       description: tool.description,
-      parameters: tool.input_schema,
+      parameters: cleanInputSchema(tool.input_schema),
     },
   }))
 }
