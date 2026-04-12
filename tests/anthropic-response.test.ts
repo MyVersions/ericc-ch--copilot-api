@@ -92,7 +92,7 @@ describe("OpenAI to Anthropic Non-Streaming Response Translation", () => {
       },
     }
 
-    const anthropicResponse = translateToAnthropic(openAIResponse)
+    const anthropicResponse = translateToAnthropic(openAIResponse, new Map())
 
     expect(isValidAnthropicResponse(anthropicResponse)).toBe(true)
 
@@ -143,7 +143,7 @@ describe("OpenAI to Anthropic Non-Streaming Response Translation", () => {
       },
     }
 
-    const anthropicResponse = translateToAnthropic(openAIResponse)
+    const anthropicResponse = translateToAnthropic(openAIResponse, new Map())
 
     expect(isValidAnthropicResponse(anthropicResponse)).toBe(true)
 
@@ -184,7 +184,7 @@ describe("OpenAI to Anthropic Non-Streaming Response Translation", () => {
       },
     }
 
-    const anthropicResponse = translateToAnthropic(openAIResponse)
+    const anthropicResponse = translateToAnthropic(openAIResponse, new Map())
 
     expect(isValidAnthropicResponse(anthropicResponse)).toBe(true)
     expect(anthropicResponse.stop_reason).toBe("max_tokens")
@@ -254,7 +254,7 @@ describe("OpenAI to Anthropic Streaming Response Translation", () => {
       toolCalls: {},
     }
     const translatedStream = openAIStream.flatMap((chunk) =>
-      translateChunkToAnthropicEvents(chunk, streamState),
+      translateChunkToAnthropicEvents(chunk, streamState, new Map()),
     )
 
     for (const event of translatedStream) {
@@ -354,7 +354,7 @@ describe("OpenAI to Anthropic Streaming Response Translation", () => {
       toolCalls: {},
     }
     const translatedStream = openAIStream.flatMap((chunk) =>
-      translateChunkToAnthropicEvents(chunk, streamState),
+      translateChunkToAnthropicEvents(chunk, streamState, new Map()),
     )
 
     // These tests will fail until the stub is implemented

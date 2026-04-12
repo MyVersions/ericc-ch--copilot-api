@@ -25,20 +25,57 @@ import {
 } from "./anthropic-types"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
 
+// Tool name compression
+// GitHub Copilot enforces a 64-character limit on function names.
+// MCP tool names like `mcp__azure-devops-hapvida__repo_list_pull_requests_by_repo_or_project`
+// can exceed this limit. We compress the server segment (between the first and second `__`)
+// into an abbreviated prefix using the initial letter of each word in the server name.
+// e.g. `mcp__azure-devops-hapvida__X` → `madh__X`
+// A per-request map is kept so names can be restored in the response.
+
+export type ToolNameMap = Map<string, string> // compressed → original
+
+function compressToolName(name: string, map: ToolNameMap): string {
+  const parts = name.split("__")
+  if (parts.length < 3) return name
+
+  const [prefix, server, ...rest] = parts
+  const initials = server
+    .replaceAll("-", " ")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+  const compressed = `${prefix[0]}${initials}__${rest.join("__")}`
+
+  if (compressed.length < name.length) {
+    map.set(compressed, name)
+    return compressed
+  }
+
+  return name
+}
+
+export function restoreToolName(name: string, map: ToolNameMap): string {
+  return map.get(name) ?? name
+}
+
 // Payload translation
 
-export function translateToOpenAI(
-  payload: AnthropicMessagesPayload,
-): ChatCompletionsPayload {
+export function translateToOpenAI(payload: AnthropicMessagesPayload): {
+  openAIPayload: ChatCompletionsPayload
+  toolNameMap: ToolNameMap
+} {
+  const toolNameMap: ToolNameMap = new Map()
   const translatedModel = translateModelName(payload.model)
   const modelInfo = state.models?.data.find((m) => m.id === translatedModel)
   const maxOutputTokens = modelInfo?.capabilities.limits.max_output_tokens
 
-  return {
+  const openAIPayload: ChatCompletionsPayload = {
     model: translatedModel,
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
       payload.system,
+      toolNameMap,
     ),
     max_tokens:
       maxOutputTokens ?
@@ -49,9 +86,14 @@ export function translateToOpenAI(
     temperature: payload.temperature,
     top_p: payload.top_p,
     user: payload.metadata?.user_id,
-    tools: translateAnthropicToolsToOpenAI(payload.tools),
-    tool_choice: translateAnthropicToolChoiceToOpenAI(payload.tool_choice),
+    tools: translateAnthropicToolsToOpenAI(payload.tools, toolNameMap),
+    tool_choice: translateAnthropicToolChoiceToOpenAI(
+      payload.tool_choice,
+      toolNameMap,
+    ),
   }
+
+  return { openAIPayload, toolNameMap }
 }
 
 function translateModelName(model: string): string {
@@ -99,13 +141,14 @@ function translateModelName(model: string): string {
 function translateAnthropicMessagesToOpenAI(
   anthropicMessages: Array<AnthropicMessage>,
   system: string | Array<AnthropicTextBlock> | undefined,
+  toolNameMap: ToolNameMap,
 ): Array<Message> {
   const systemMessages = handleSystemPrompt(system)
 
   const otherMessages = anthropicMessages.flatMap((message) =>
     message.role === "user" ?
-      handleUserMessage(message)
-    : handleAssistantMessage(message),
+      handleUserMessage(message, toolNameMap)
+    : handleAssistantMessage(message, toolNameMap),
   )
 
   return [...systemMessages, ...otherMessages]
@@ -126,7 +169,10 @@ function handleSystemPrompt(
   }
 }
 
-function handleUserMessage(message: AnthropicUserMessage): Array<Message> {
+function handleUserMessage(
+  message: AnthropicUserMessage,
+  _toolNameMap: ToolNameMap,
+): Array<Message> {
   const newMessages: Array<Message> = []
 
   if (Array.isArray(message.content)) {
@@ -146,7 +192,6 @@ function handleUserMessage(message: AnthropicUserMessage): Array<Message> {
         content: mapContent(block.content),
       })
     }
-
     if (otherBlocks.length > 0) {
       newMessages.push({
         role: "user",
@@ -165,6 +210,7 @@ function handleUserMessage(message: AnthropicUserMessage): Array<Message> {
 
 function handleAssistantMessage(
   message: AnthropicAssistantMessage,
+  toolNameMap: ToolNameMap,
 ): Array<Message> {
   if (!Array.isArray(message.content)) {
     return [
@@ -202,7 +248,7 @@ function handleAssistantMessage(
             id: toolUse.id,
             type: "function",
             function: {
-              name: toolUse.name,
+              name: compressToolName(toolUse.name, toolNameMap),
               arguments: JSON.stringify(toolUse.input),
             },
           })),
@@ -270,6 +316,7 @@ function mapContent(
 
 function translateAnthropicToolsToOpenAI(
   anthropicTools: Array<AnthropicTool> | undefined,
+  toolNameMap: ToolNameMap,
 ): Array<Tool> | undefined {
   if (!anthropicTools) {
     return undefined
@@ -277,7 +324,7 @@ function translateAnthropicToolsToOpenAI(
   return anthropicTools.map((tool) => ({
     type: "function",
     function: {
-      name: tool.name,
+      name: compressToolName(tool.name, toolNameMap),
       description: tool.description,
       parameters: tool.input_schema,
     },
@@ -286,6 +333,7 @@ function translateAnthropicToolsToOpenAI(
 
 function translateAnthropicToolChoiceToOpenAI(
   anthropicToolChoice: AnthropicMessagesPayload["tool_choice"],
+  toolNameMap: ToolNameMap,
 ): ChatCompletionsPayload["tool_choice"] {
   if (!anthropicToolChoice) {
     return undefined
@@ -302,7 +350,9 @@ function translateAnthropicToolChoiceToOpenAI(
       if (anthropicToolChoice.name) {
         return {
           type: "function",
-          function: { name: anthropicToolChoice.name },
+          function: {
+            name: compressToolName(anthropicToolChoice.name, toolNameMap),
+          },
         }
       }
       return undefined
@@ -320,6 +370,7 @@ function translateAnthropicToolChoiceToOpenAI(
 
 export function translateToAnthropic(
   response: ChatCompletionResponse,
+  toolNameMap: ToolNameMap,
 ): AnthropicResponse {
   // Merge content from all choices
   const allTextBlocks: Array<AnthropicTextBlock> = []
@@ -331,7 +382,10 @@ export function translateToAnthropic(
   // Process all choices to extract text and tool use blocks
   for (const choice of response.choices) {
     const textBlocks = getAnthropicTextBlocks(choice.message.content)
-    const toolUseBlocks = getAnthropicToolUseBlocks(choice.message.tool_calls)
+    const toolUseBlocks = getAnthropicToolUseBlocks(
+      choice.message.tool_calls,
+      toolNameMap,
+    )
 
     allTextBlocks.push(...textBlocks)
     allToolUseBlocks.push(...toolUseBlocks)
@@ -384,6 +438,7 @@ function getAnthropicTextBlocks(
 
 function getAnthropicToolUseBlocks(
   toolCalls: Array<ToolCall> | undefined,
+  toolNameMap: ToolNameMap,
 ): Array<AnthropicToolUseBlock> {
   if (!toolCalls) {
     return []
@@ -391,7 +446,7 @@ function getAnthropicToolUseBlocks(
   return toolCalls.map((toolCall) => ({
     type: "tool_use",
     id: toolCall.id,
-    name: toolCall.function.name,
+    name: restoreToolName(toolCall.function.name, toolNameMap),
     input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
   }))
 }

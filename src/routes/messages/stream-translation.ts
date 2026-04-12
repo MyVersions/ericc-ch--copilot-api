@@ -4,6 +4,7 @@ import {
   type AnthropicStreamEventData,
   type AnthropicStreamState,
 } from "./anthropic-types"
+import { type ToolNameMap, restoreToolName } from "./non-stream-translation"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
 
 function isToolBlockOpen(state: AnthropicStreamState): boolean {
@@ -20,6 +21,7 @@ function isToolBlockOpen(state: AnthropicStreamState): boolean {
 export function translateChunkToAnthropicEvents(
   chunk: ChatCompletionChunk,
   state: AnthropicStreamState,
+  toolNameMap: ToolNameMap,
 ): Array<AnthropicStreamEventData> {
   const events: Array<AnthropicStreamEventData> = []
 
@@ -107,7 +109,7 @@ export function translateChunkToAnthropicEvents(
         const anthropicBlockIndex = state.contentBlockIndex
         state.toolCalls[toolCall.index] = {
           id: toolCall.id,
-          name: toolCall.function.name,
+          name: restoreToolName(toolCall.function.name, toolNameMap),
           anthropicBlockIndex,
         }
 
@@ -117,7 +119,7 @@ export function translateChunkToAnthropicEvents(
           content_block: {
             type: "tool_use",
             id: toolCall.id,
-            name: toolCall.function.name,
+            name: restoreToolName(toolCall.function.name, toolNameMap),
             input: {},
           },
         })

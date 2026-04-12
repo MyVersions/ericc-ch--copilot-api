@@ -70,7 +70,7 @@ describe("Anthropic to OpenAI translation logic", () => {
       max_tokens: 0,
     }
 
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const { openAIPayload } = translateToOpenAI(anthropicPayload)
     expect(isValidChatCompletionRequest(openAIPayload)).toBe(true)
   })
 
@@ -99,7 +99,7 @@ describe("Anthropic to OpenAI translation logic", () => {
       ],
       tool_choice: { type: "auto" },
     }
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const { openAIPayload } = translateToOpenAI(anthropicPayload)
     expect(isValidChatCompletionRequest(openAIPayload)).toBe(true)
   })
 
@@ -109,7 +109,7 @@ describe("Anthropic to OpenAI translation logic", () => {
       messages: [{ role: "user", content: "Hello!" }],
       max_tokens: 0,
     }
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const { openAIPayload } = translateToOpenAI(anthropicPayload)
     expect(isValidChatCompletionRequest(openAIPayload)).toBe(true)
   })
 
@@ -120,7 +120,7 @@ describe("Anthropic to OpenAI translation logic", () => {
       temperature: "hot", // Should be a number
     }
     // @ts-expect-error intended to be invalid
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const { openAIPayload } = translateToOpenAI(anthropicPayload)
     // Should fail validation
     expect(isValidChatCompletionRequest(openAIPayload)).toBe(false)
   })
@@ -143,7 +143,7 @@ describe("Anthropic to OpenAI translation logic", () => {
       ],
       max_tokens: 100,
     }
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const { openAIPayload } = translateToOpenAI(anthropicPayload)
     expect(isValidChatCompletionRequest(openAIPayload)).toBe(true)
 
     // Check that thinking content is combined with text content
@@ -181,7 +181,7 @@ describe("Anthropic to OpenAI translation logic", () => {
       ],
       max_tokens: 100,
     }
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const { openAIPayload } = translateToOpenAI(anthropicPayload)
     expect(isValidChatCompletionRequest(openAIPayload)).toBe(true)
 
     // Check that thinking content is included in the message content
