@@ -45,7 +45,7 @@ function compressToolName(name: string, map: ToolNameMap): string {
     .split(" ")
     .map((w) => w[0])
     .join("")
-  const compressed = `${prefix[0]}${initials}__${rest.join("__")}`
+  const compressed = `${prefix}__${initials}__${rest.join("__")}`
 
   if (compressed.length < name.length) {
     map.set(compressed, name)
