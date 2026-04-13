@@ -157,14 +157,8 @@ function formatModels(models: Array<Model>): string {
     lines.push(ANSI.bold(`  ${vendor}`))
     for (const m of vendorModels) {
       const id = m.id.padEnd(maxIdLen)
-      const ctxTokens =
-        m.capabilities.limits.max_context_window_tokens !== undefined ?
-          m.capabilities.limits.max_context_window_tokens
-        : undefined
-      const outTokens =
-        m.capabilities.limits.max_output_tokens !== undefined ?
-          m.capabilities.limits.max_context_window_tokens
-        : undefined
+      const ctxTokens = m.capabilities.limits?.max_context_window_tokens
+      const outTokens = m.capabilities.limits?.max_output_tokens
       const ctx =
         ctxTokens !== undefined ?
           `ctx: ${Math.round(ctxTokens / 1000)}k`

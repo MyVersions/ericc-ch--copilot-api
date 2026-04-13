@@ -68,7 +68,7 @@ export function translateToOpenAI(payload: AnthropicMessagesPayload): {
   const toolNameMap: ToolNameMap = new Map()
   const translatedModel = translateModelName(payload.model)
   const modelInfo = state.models?.data.find((m) => m.id === translatedModel)
-  const maxOutputTokens = modelInfo?.capabilities.limits.max_output_tokens
+  const maxOutputTokens = modelInfo?.capabilities.limits?.max_output_tokens
 
   const openAIPayload: ChatCompletionsPayload = {
     model: translatedModel,
