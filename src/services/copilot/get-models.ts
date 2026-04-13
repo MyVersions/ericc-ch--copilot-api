@@ -3,11 +3,17 @@ import { HTTPError } from "~/lib/error"
 import { state } from "~/lib/state"
 
 export const getModels = async () => {
-  const response = await fetch(`${copilotBaseUrl(state)}/models`, {
-    headers: copilotHeaders(state),
-  })
+  const headers = copilotHeaders(state)
+  const url = `${copilotBaseUrl(state)}/models`
 
-  if (!response.ok) throw new HTTPError("Failed to get models", response)
+  const response = await fetch(url, { headers })
+
+  if (!response.ok) {
+    const err = new HTTPError("Failed to get models", response)
+    err.copilotRequestUrl = url
+    err.copilotRequestHeaders = headers
+    throw err
+  }
 
   return (await response.json()) as ModelsResponse
 }

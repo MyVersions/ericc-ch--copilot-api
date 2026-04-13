@@ -5,6 +5,9 @@ import consola from "consola"
 
 export class HTTPError extends Error {
   response: Response
+  copilotRequestUrl?: string
+  copilotRequestHeaders?: Record<string, string>
+  copilotRequestBody?: unknown
 
   constructor(message: string, response: Response) {
     super(message)

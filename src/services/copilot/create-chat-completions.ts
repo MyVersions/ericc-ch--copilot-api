@@ -30,14 +30,20 @@ export const createChatCompletions = async (
     "X-Initiator": isAgentCall ? "agent" : "user",
   }
 
-  const response = await fetch(`${copilotBaseUrl(state)}/chat/completions`, {
+  const url = `${copilotBaseUrl(state)}/chat/completions`
+
+  const response = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
-    throw new HTTPError("Failed to create chat completions", response)
+    const err = new HTTPError("Failed to create chat completions", response)
+    err.copilotRequestUrl = url
+    err.copilotRequestHeaders = headers
+    err.copilotRequestBody = payload
+    throw err
   }
 
   if (payload.stream) {

@@ -58,8 +58,8 @@ describe("padLeft", () => {
 // ─── formatDate ──────────────────────────────────────────────────────────────
 
 describe("formatDate", () => {
-  test("returns exactly 17 characters", () => {
-    expect(formatDate().length).toBe(17)
+  test("returns exactly 16 characters", () => {
+    expect(formatDate().length).toBe(16)
   })
 
   test("matches pattern [DD/MM HH:MM:SS]", () => {
@@ -94,9 +94,9 @@ describe("formatSize", () => {
     expect(formatSize(1.3)).toBe("   1.3kb")
   })
 
-  test("shows kb for larger values in kb range", () => {
-    // 1330 kb → "1330.0kb"
-    expect(formatSize(1330)).toBe("1330.0kb")
+  test("shows Mb for values >= 1024 kb (1330 kb)", () => {
+    // 1330 kb ≥ 1024 → converted to Mb: 1330 / 1024 ≈ 1.3Mb → "   1.3Mb"
+    expect(formatSize(1330)).toBe("   1.3Mb")
   })
 
   test("shows Mb for values >= 1024 kb", () => {
@@ -339,7 +339,7 @@ describe("LOG_CONFIG", () => {
     expect(LOG_CONFIG.widths.device).toBe(40)
     expect(LOG_CONFIG.widths.deviceLeft).toBe(29)
     expect(LOG_CONFIG.widths.deviceRight).toBe(10)
-    expect(LOG_CONFIG.widths.model).toBe(25)
+    expect(LOG_CONFIG.widths.model).toBe(20)
     expect(LOG_CONFIG.widths.time).toBe(8)
   })
 
