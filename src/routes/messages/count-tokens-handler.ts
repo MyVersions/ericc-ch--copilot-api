@@ -2,6 +2,8 @@ import type { Context } from "hono"
 
 import consola from "consola"
 
+import { extractDeviceId } from "~/lib/extract-device-id"
+import { logRequest } from "~/lib/logger"
 import { state } from "~/lib/state"
 import { getTokenCount } from "~/lib/tokenizer"
 
@@ -12,10 +14,14 @@ import { translateToOpenAI } from "./non-stream-translation"
  * Handles token counting for Anthropic messages
  */
 export async function handleCountTokens(c: Context) {
+  const startTime = Date.now()
+  const deviceId = extractDeviceId(c)
+
   try {
     const anthropicBeta = c.req.header("anthropic-beta")
 
     const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
+    const payloadJson = JSON.stringify(anthropicPayload)
 
     const { openAIPayload } = translateToOpenAI(anthropicPayload)
 
@@ -25,6 +31,15 @@ export async function handleCountTokens(c: Context) {
 
     if (!selectedModel) {
       consola.warn("Model not found, returning default token count")
+      logRequest({
+        method: c.req.method,
+        path: c.req.path,
+        status: 200,
+        durationMs: Date.now() - startTime,
+        requestSizeKb: 0,
+        model: anthropicPayload.model,
+        deviceId,
+      })
       return c.json({
         input_tokens: 1,
       })
@@ -56,13 +71,30 @@ export async function handleCountTokens(c: Context) {
       finalTokenCount = Math.round(finalTokenCount * 1.03)
     }
 
-    //consola.info("Token count:", finalTokenCount)
+    logRequest({
+      method: c.req.method,
+      path: c.req.path,
+      status: 200,
+      durationMs: Date.now() - startTime,
+      requestSizeKb: payloadJson.length / 1024,
+      model: anthropicPayload.model,
+      deviceId,
+    })
 
     return c.json({
       input_tokens: finalTokenCount,
     })
   } catch (error) {
     consola.error("Error counting tokens:", error)
+    logRequest({
+      method: c.req.method,
+      path: c.req.path,
+      status: 500,
+      durationMs: Date.now() - startTime,
+      requestSizeKb: 0,
+      model: "unknown",
+      deviceId,
+    })
     return c.json({
       input_tokens: 1,
     })
