@@ -133,13 +133,30 @@ export async function runServer(options: RunServerOptions): Promise<void> {
   })
 }
 
+const ANSI = {
+  green: (s: string) => `\x1b[32m${s}\x1b[0m`,
+  red: (s: string) => `\x1b[31m${s}\x1b[0m`,
+  yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
+  bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
+}
+
 function formatModels(models: Array<Model>): string {
   const sorted = [...models].sort((a, b) => a.id.localeCompare(b.id))
   const maxIdLen = Math.max(...sorted.map((m) => m.id.length), 0)
-  return sorted
-    .map((m) => {
+
+  const groups = new Map<string, Array<Model>>()
+  for (const m of sorted) {
+    const vendor = m.vendor || "unknown"
+    const group = groups.get(vendor) ?? []
+    group.push(m)
+    groups.set(vendor, group)
+  }
+
+  const lines: Array<string> = []
+  for (const [vendor, vendorModels] of [...groups.entries()].sort()) {
+    lines.push(ANSI.bold(`  ${vendor}`))
+    for (const m of vendorModels) {
       const id = m.id.padEnd(maxIdLen)
-      const vendor = m.vendor.padEnd(12)
       const ctxTokens = m.capabilities.limits.max_context_window_tokens
       const outTokens = m.capabilities.limits.max_output_tokens
       const ctx =
@@ -150,11 +167,18 @@ function formatModels(models: Array<Model>): string {
         outTokens !== undefined ?
           `out: ${Math.round(outTokens / 1000)}k`
         : "out: -"
-      const tools = m.capabilities.supports.tool_calls ? "tools: ✓" : "tools: ✗"
-      const preview = m.preview ? " [preview]" : ""
-      return `- ${id}  ${vendor}  ${ctx.padEnd(10)}  ${out.padEnd(9)}  ${tools}${preview}`
-    })
-    .join("\n")
+      const tools =
+        m.capabilities.supports.tool_calls ?
+          ANSI.green("tools: ✓")
+        : ANSI.red("tools: ✗")
+      const preview = m.preview ? " " + ANSI.yellow("[preview]") : ""
+      lines.push(
+        `  - ${id}  ${ctx.padEnd(10)}  ${out.padEnd(9)}  ${tools}${preview}`,
+      )
+    }
+  }
+
+  return lines.join("\n")
 }
 
 export const start = defineCommand({
