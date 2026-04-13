@@ -14,6 +14,7 @@ import { state } from "./lib/state"
 import { setupCopilotToken, setupGitHubToken } from "./lib/token"
 import { cacheModels, cacheVSCodeVersion } from "./lib/utils"
 import { server } from "./server"
+import { type Model } from "./services/copilot/get-models"
 
 interface RunServerOptions {
   port: number
@@ -65,9 +66,7 @@ export async function runServer(options: RunServerOptions): Promise<void> {
   await setupCopilotToken()
   await cacheModels()
 
-  consola.info(
-    `Available models: \n${state.models?.data.map((model) => `- ${model.id}`).join("\n")}`,
-  )
+  consola.info(`Available models:\n${formatModels(state.models?.data ?? [])}`)
 
   const serverUrl = `http://localhost:${options.port}`
 
@@ -132,6 +131,30 @@ export async function runServer(options: RunServerOptions): Promise<void> {
     port: options.port,
     bun: { idleTimeout: 120 },
   })
+}
+
+function formatModels(models: Array<Model>): string {
+  const sorted = [...models].sort((a, b) => a.id.localeCompare(b.id))
+  const maxIdLen = Math.max(...sorted.map((m) => m.id.length), 0)
+  return sorted
+    .map((m) => {
+      const id = m.id.padEnd(maxIdLen)
+      const vendor = m.vendor.padEnd(12)
+      const ctxTokens = m.capabilities.limits.max_context_window_tokens
+      const outTokens = m.capabilities.limits.max_output_tokens
+      const ctx =
+        ctxTokens !== undefined ?
+          `ctx: ${Math.round(ctxTokens / 1000)}k`
+        : "ctx: -"
+      const out =
+        outTokens !== undefined ?
+          `out: ${Math.round(outTokens / 1000)}k`
+        : "out: -"
+      const tools = m.capabilities.supports.tool_calls ? "tools: ✓" : "tools: ✗"
+      const preview = m.preview ? " [preview]" : ""
+      return `- ${id}  ${vendor}  ${ctx.padEnd(10)}  ${out.padEnd(9)}  ${tools}${preview}`
+    })
+    .join("\n")
 }
 
 export const start = defineCommand({
