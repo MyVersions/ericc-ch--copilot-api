@@ -52,6 +52,11 @@ export async function handleCompletion(c: Context) {
   const deviceId = extractDeviceId(c)
   const sessionId = extractSessionId(anthropicPayload.metadata?.user_id)
 
+  // Store early so forwardError can enrich the fallback log line
+  c.set("logDeviceId" as never, deviceId as never)
+  c.set("logRequestSizeKb" as never, (payloadJson.length / 1024) as never)
+  c.set("logModel" as never, anthropicPayload.model as never)
+
   const { openAIPayload, toolNameMap } = translateToOpenAI(anthropicPayload)
   consola.debug(
     "Translated OpenAI request payload:",

@@ -3,7 +3,7 @@ import type { Context } from "hono"
 import consola from "consola"
 
 import { extractDeviceId } from "~/lib/extract-device-id"
-import { logRequest } from "~/lib/logger"
+import { logRequest, markRequestLogged } from "~/lib/logger"
 import { state } from "~/lib/state"
 import { getTokenCount } from "~/lib/tokenizer"
 
@@ -23,6 +23,11 @@ export async function handleCountTokens(c: Context) {
     const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
     const payloadJson = JSON.stringify(anthropicPayload)
 
+    // Store early so forwardError can enrich the fallback log line
+    c.set("logDeviceId" as never, deviceId as never)
+    c.set("logRequestSizeKb" as never, (payloadJson.length / 1024) as never)
+    c.set("logModel" as never, anthropicPayload.model as never)
+
     const { openAIPayload } = translateToOpenAI(anthropicPayload)
 
     const selectedModel = state.models?.data.find(
@@ -31,6 +36,7 @@ export async function handleCountTokens(c: Context) {
 
     if (!selectedModel) {
       consola.warn("Model not found, returning default token count")
+      markRequestLogged(c.req.raw)
       logRequest({
         method: c.req.method,
         path: c.req.path,
@@ -71,6 +77,7 @@ export async function handleCountTokens(c: Context) {
       finalTokenCount = Math.round(finalTokenCount * 1.03)
     }
 
+    markRequestLogged(c.req.raw)
     logRequest({
       method: c.req.method,
       path: c.req.path,
@@ -86,6 +93,7 @@ export async function handleCountTokens(c: Context) {
     })
   } catch (error) {
     consola.error("Error counting tokens:", error)
+    markRequestLogged(c.req.raw)
     logRequest({
       method: c.req.method,
       path: c.req.path,

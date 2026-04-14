@@ -30,6 +30,12 @@ export async function handleCompletion(c: Context) {
 
   const deviceId = extractDeviceId(c)
   const sessionId = extractSessionId(payload.user)
+
+  // Store early so forwardError can enrich the fallback log line
+  c.set("logDeviceId" as never, deviceId as never)
+  c.set("logRequestSizeKb" as never, (payloadJson.length / 1024) as never)
+  c.set("logModel" as never, payload.model as never)
+
   const selectedModel = state.models?.data.find(
     (model) => model.id === payload.model,
   )

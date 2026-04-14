@@ -218,12 +218,6 @@ function buildErrorLogData(log: LogObject, ts: string): ErrorLogData {
   }
 }
 
-function formatShort(log: LogObject): string {
-  const status = extractHttpStatus(log.args)
-  const message = String(log.args[0] ?? "Unknown error")
-  return status ? `HTTP ${status} – ${message}` : message
-}
-
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 export function setupErrorFileLogger(): void {
@@ -232,7 +226,6 @@ export function setupErrorFileLogger(): void {
   const stdoutReporter: ConsolaReporter = {
     log(log, ctx) {
       if (log.type === "error" || log.type === "fatal") {
-        process.stderr.write(`\x1b[31m✖ ERROR\x1b[0m  ${formatShort(log)}\n`)
         return
       }
       defaultReporter.log(log, ctx)
