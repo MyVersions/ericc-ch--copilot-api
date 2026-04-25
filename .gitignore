@@ -16,3 +16,4 @@ volumes/
 
 # build output
 dist/
+.credentials.json

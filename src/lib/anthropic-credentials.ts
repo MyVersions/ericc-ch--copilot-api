@@ -43,9 +43,9 @@ async function loadCredentials(): Promise<CredentialsFile["claudeAiOauth"]> {
       `Anthropic credentials not found or invalid at ${CREDENTIALS_PATH}`,
     )
   }
-  const creds = (parsed as CredentialsFile).claudeAiOauth
+  const creds = (parsed as Partial<CredentialsFile>).claudeAiOauth
   if (
-    !creds.accessToken
+    !creds?.accessToken
     || !creds.refreshToken
     || typeof creds.expiresAt !== "number"
   ) {
