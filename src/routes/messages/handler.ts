@@ -6,10 +6,12 @@ import { streamSSE } from "hono/streaming"
 
 import { awaitApproval } from "~/lib/approval"
 import { insertLog } from "~/lib/db"
+import { HTTPError } from "~/lib/error"
 import { extractDeviceId, extractSessionId } from "~/lib/extract-device-id"
-import { logRequest, markRequestLogged } from "~/lib/logger"
+import { LOG_CONFIG, logRequest, markRequestLogged } from "~/lib/logger"
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
+import { createAnthropicMessage } from "~/services/anthropic/create-message"
 import {
   createChatCompletions,
   type ChatCompletionChunk,
@@ -18,6 +20,7 @@ import {
 
 import {
   type AnthropicMessagesPayload,
+  type AnthropicStreamEventData,
   type AnthropicStreamState,
 } from "./anthropic-types"
 import {
@@ -65,8 +68,23 @@ export async function handleCompletion(c: Context) {
 
   if (state.manualApprove) await awaitApproval()
 
-  const { result, requestId, isAgentCall } =
-    await createChatCompletions(openAIPayload)
+  let copilotResult: Awaited<ReturnType<typeof createChatCompletions>>
+  try {
+    copilotResult = await createChatCompletions(openAIPayload)
+  } catch (error) {
+    if (error instanceof HTTPError && error.response.status === 402) {
+      return handleAnthropicFallback(c, anthropicPayload, {
+        startTime,
+        payloadJson,
+        deviceId,
+        sessionId,
+        requestSizeKb: payloadJson.length / 1024,
+      })
+    }
+    throw error
+  }
+
+  const { result, requestId, isAgentCall } = copilotResult
   const requestSizeKb = payloadJson.length / 1024
   const logBase = {
     startTime,
@@ -84,6 +102,26 @@ export async function handleCompletion(c: Context) {
   if (isNonStreaming(result))
     return handleNonStreaming(result, logBase, toolNameMap)
 
+  return handleStreamingCompletion(result, logBase, toolNameMap)
+}
+
+function handleStreamingCompletion(
+  result: AsyncGenerator<ServerSentEventMessage, void, unknown>,
+  logBase: LogBase,
+  toolNameMap: ToolNameMap,
+) {
+  const {
+    startTime,
+    anthropicPayload,
+    openAIPayload,
+    payloadJson,
+    deviceId,
+    sessionId,
+    requestId,
+    isAgentCall,
+    requestSizeKb,
+    c,
+  } = logBase
   consola.debug("Streaming response from Copilot")
   markRequestLogged(c.req.raw)
   return streamSSE(
@@ -270,3 +308,186 @@ async function consumeAnthropicStream(
 const isNonStreaming = (
   result: Awaited<ReturnType<typeof createChatCompletions>>["result"],
 ): result is ChatCompletionResponse => Object.hasOwn(result, "choices")
+
+interface AnthropicFallbackBase {
+  startTime: number
+  payloadJson: string
+  deviceId: string | undefined
+  sessionId: string | undefined
+  requestSizeKb: number
+}
+
+async function handleAnthropicFallback(
+  c: Context,
+  anthropicPayload: AnthropicMessagesPayload,
+  base: AnthropicFallbackBase,
+) {
+  const { result, requestId } = await createAnthropicMessage(anthropicPayload)
+  const isAgentCall = anthropicPayload.messages.some(
+    (m) => m.role === "assistant",
+  )
+
+  if (isAnthropicStream(result)) {
+    return handleFallbackStream(c, result, {
+      anthropicPayload,
+      base,
+      requestId,
+      isAgentCall,
+    })
+  }
+
+  consola.debug("Anthropic fallback: non-streaming response")
+  const durationMs = Date.now() - base.startTime
+  const inputTokens = result.usage.input_tokens
+  const outputTokens = result.usage.output_tokens
+  insertLog({
+    timestamp: base.startTime,
+    model: anthropicPayload.model,
+    device_id: base.deviceId,
+    session_id: base.sessionId,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    duration_ms: durationMs,
+    request_body: base.payloadJson,
+    response_body: JSON.stringify(result),
+    finish_reason: result.stop_reason,
+    stream: false,
+    is_agent_call: isAgentCall,
+    cached_tokens: null,
+    request_id: requestId,
+    route: "anthropic-fallback",
+    tools_count: anthropicPayload.tools?.length ?? 0,
+    accepted_prediction_tokens: null,
+    rejected_prediction_tokens: null,
+  })
+  markRequestLogged(c.req.raw)
+  logRequest({
+    method: c.req.method,
+    path: c.req.path,
+    status: 200,
+    durationMs,
+    requestSizeKb: base.requestSizeKb,
+    model: anthropicPayload.model,
+    deviceId: base.deviceId,
+    inputTokens,
+    outputTokens,
+    methodColor: LOG_CONFIG.colors.methodFallback,
+  })
+  return c.json(result)
+}
+
+interface FallbackStreamContext {
+  anthropicPayload: AnthropicMessagesPayload
+  base: AnthropicFallbackBase
+  requestId: string
+  isAgentCall: boolean
+}
+
+function handleFallbackStream(
+  c: Context,
+  result: AsyncGenerator<ServerSentEventMessage, void, unknown>,
+  ctx: FallbackStreamContext,
+) {
+  const { anthropicPayload, base, requestId, isAgentCall } = ctx
+  consola.debug("Anthropic fallback: streaming response")
+  markRequestLogged(c.req.raw)
+  return streamSSE(
+    c,
+    async (stream) => {
+      const { inputTokens, outputTokens, finishReason, accumulatedContent } =
+        await consumeAnthropicPassthroughStream(result, stream)
+      const durationMs = Date.now() - base.startTime
+      insertLog({
+        timestamp: base.startTime,
+        model: anthropicPayload.model,
+        device_id: base.deviceId,
+        session_id: base.sessionId,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        duration_ms: durationMs,
+        request_body: base.payloadJson,
+        response_body: accumulatedContent,
+        finish_reason: finishReason,
+        stream: true,
+        is_agent_call: isAgentCall,
+        cached_tokens: null,
+        request_id: requestId,
+        route: "anthropic-fallback",
+        tools_count: anthropicPayload.tools?.length ?? 0,
+        accepted_prediction_tokens: null,
+        rejected_prediction_tokens: null,
+      })
+      logRequest({
+        method: c.req.method,
+        path: c.req.path,
+        status: 200,
+        durationMs,
+        requestSizeKb: base.requestSizeKb,
+        model: anthropicPayload.model,
+        deviceId: base.deviceId,
+        inputTokens,
+        outputTokens,
+        methodColor: LOG_CONFIG.colors.methodFallback,
+      })
+    },
+    async (error, stream) => {
+      consola.error("Anthropic fallback stream error:", error)
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({
+          type: "error",
+          error: { type: "api_error", message: error.message },
+        }),
+      })
+    },
+  )
+}
+
+async function consumeAnthropicPassthroughStream(
+  result: AsyncGenerator<ServerSentEventMessage, void, unknown>,
+  stream: { writeSSE: (msg: { event: string; data: string }) => Promise<void> },
+): Promise<{
+  inputTokens: number
+  outputTokens: number
+  finishReason: string | null
+  accumulatedContent: string
+}> {
+  let inputTokens = 0
+  let outputTokens = 0
+  let finishReason: string | null = null
+  let accumulatedContent = ""
+
+  for await (const rawEvent of result) {
+    consola.debug("Anthropic fallback raw event:", JSON.stringify(rawEvent))
+    if (!rawEvent.data || rawEvent.data === "[DONE]") continue
+
+    await stream.writeSSE({
+      event: rawEvent.event ?? "message",
+      data: rawEvent.data,
+    })
+
+    try {
+      const parsed = JSON.parse(rawEvent.data) as AnthropicStreamEventData
+      if (parsed.type === "message_start") {
+        inputTokens = parsed.message.usage.input_tokens
+      } else if (
+        parsed.type === "content_block_delta"
+        && parsed.delta.type === "text_delta"
+      ) {
+        accumulatedContent += parsed.delta.text
+      } else if (parsed.type === "message_delta") {
+        if (parsed.usage) outputTokens = parsed.usage.output_tokens
+        if (parsed.delta.stop_reason) finishReason = parsed.delta.stop_reason
+      }
+    } catch {
+      // ignore malformed events
+    }
+  }
+
+  return { inputTokens, outputTokens, finishReason, accumulatedContent }
+}
+
+const isAnthropicStream = (
+  result: Awaited<ReturnType<typeof createAnthropicMessage>>["result"],
+): result is AsyncGenerator<ServerSentEventMessage, void, unknown> =>
+  Symbol.asyncIterator in result
