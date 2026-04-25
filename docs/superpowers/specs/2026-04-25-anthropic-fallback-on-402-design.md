@@ -138,6 +138,14 @@ Client → /v1/messages → handler → translateToOpenAI → createChatCompleti
 - `tools_count` derivado de `anthropicPayload.tools?.length ?? 0`.
 - `cached_tokens`: deixar `null` (Anthropic expõe `cache_read_input_tokens` separado, fora do escopo desta primeira versão).
 
+### Indicação visual no console
+
+Quando a request é servida pelo fallback Anthropic, o verbo HTTP no log do console deve aparecer em **amarelo** (em vez do ciano padrão). Implementação:
+
+- Estender `RequestLogInfo` (em `src/lib/logger.ts`) com campo opcional `methodColor?: (s: string) => string`.
+- Em `logRequest`, usar `info.methodColor ?? LOG_CONFIG.colors.method` para colorir o `methodField`.
+- O handler do fallback chama `logRequest({ ..., methodColor: ansiYellow })` passando a função `LOG_CONFIG.colors.status4xx` (que já é amarela) — ou expor `LOG_CONFIG.colors.methodFallback` apontando para amarelo. Decisão de implementação: expor `colors.methodFallback` para deixar a intenção explícita.
+
 ## Não-objetivos
 
 - Fallback em `/v1/chat/completions` ou `/v1/embeddings`.
