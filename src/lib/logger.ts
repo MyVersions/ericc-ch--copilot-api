@@ -39,6 +39,7 @@ export const LOG_CONFIG = {
   colors: {
     date: (s: string) => ansi.dim(s),
     method: (s: string) => ansi.cyan(s),
+    methodFallback: (s: string) => ansi.yellow(s),
     path: (s: string) => s,
     status2xx: (s: string) => ansi.green(s),
     status3xx: (s: string) => ansi.green(s),
@@ -208,6 +209,7 @@ export interface RequestLogInfo {
   deviceId?: string
   inputTokens?: number
   outputTokens?: number
+  methodColor?: (s: string) => string
 }
 
 export function logRequest(info: RequestLogInfo): void {
@@ -215,7 +217,9 @@ export function logRequest(info: RequestLogInfo): void {
   const c = LOG_CONFIG.colors
 
   const dateField = c.date(padRight(formatDate(), w.date))
-  const methodField = c.method(padRight(info.method, w.method))
+  const methodField = (info.methodColor ?? c.method)(
+    padRight(info.method, w.method),
+  )
   const pathField = c.path(padRight(info.path, w.path))
   const statusRaw = padRight(String(info.status), w.status)
   const statusField = colorStatus(info.status, statusRaw)
