@@ -73,6 +73,7 @@ export async function handleCompletion(c: Context) {
     copilotResult = await createChatCompletions(openAIPayload)
   } catch (error) {
     if (error instanceof HTTPError && error.response.status === 402) {
+      // errors from fallback propagate to the global error handler
       return handleAnthropicFallback(c, anthropicPayload, {
         startTime,
         payloadJson,
@@ -323,6 +324,7 @@ async function handleAnthropicFallback(
   base: AnthropicFallbackBase,
 ) {
   const { result, requestId } = await createAnthropicMessage(anthropicPayload)
+  // Anthropic messages only have "user" | "assistant" roles, no "tool"
   const isAgentCall = anthropicPayload.messages.some(
     (m) => m.role === "assistant",
   )
@@ -351,7 +353,7 @@ async function handleAnthropicFallback(
     request_body: base.payloadJson,
     response_body: JSON.stringify(result),
     finish_reason: result.stop_reason,
-    stream: false,
+    stream: anthropicPayload.stream ?? false,
     is_agent_call: isAgentCall,
     cached_tokens: null,
     request_id: requestId,
