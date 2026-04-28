@@ -7,7 +7,10 @@ import type {
 } from "~/services/copilot/create-chat-completions"
 
 import { type AnthropicStreamState } from "~/routes/messages/anthropic-types"
-import { translateToAnthropic } from "~/routes/messages/non-stream-translation"
+import {
+  createToolNameContext,
+  translateToAnthropic,
+} from "~/routes/messages/non-stream-translation"
 import { translateChunkToAnthropicEvents } from "~/routes/messages/stream-translation"
 
 const anthropicUsageSchema = z.object({
@@ -92,7 +95,10 @@ describe("OpenAI to Anthropic Non-Streaming Response Translation", () => {
       },
     }
 
-    const anthropicResponse = translateToAnthropic(openAIResponse, new Map())
+    const anthropicResponse = translateToAnthropic(
+      openAIResponse,
+      createToolNameContext(),
+    )
 
     expect(isValidAnthropicResponse(anthropicResponse)).toBe(true)
 
@@ -143,7 +149,10 @@ describe("OpenAI to Anthropic Non-Streaming Response Translation", () => {
       },
     }
 
-    const anthropicResponse = translateToAnthropic(openAIResponse, new Map())
+    const anthropicResponse = translateToAnthropic(
+      openAIResponse,
+      createToolNameContext(),
+    )
 
     expect(isValidAnthropicResponse(anthropicResponse)).toBe(true)
 
@@ -184,7 +193,10 @@ describe("OpenAI to Anthropic Non-Streaming Response Translation", () => {
       },
     }
 
-    const anthropicResponse = translateToAnthropic(openAIResponse, new Map())
+    const anthropicResponse = translateToAnthropic(
+      openAIResponse,
+      createToolNameContext(),
+    )
 
     expect(isValidAnthropicResponse(anthropicResponse)).toBe(true)
     expect(anthropicResponse.stop_reason).toBe("max_tokens")
@@ -254,7 +266,11 @@ describe("OpenAI to Anthropic Streaming Response Translation", () => {
       toolCalls: {},
     }
     const translatedStream = openAIStream.flatMap((chunk) =>
-      translateChunkToAnthropicEvents(chunk, streamState, new Map()),
+      translateChunkToAnthropicEvents(
+        chunk,
+        streamState,
+        createToolNameContext(),
+      ),
     )
 
     for (const event of translatedStream) {
@@ -354,7 +370,11 @@ describe("OpenAI to Anthropic Streaming Response Translation", () => {
       toolCalls: {},
     }
     const translatedStream = openAIStream.flatMap((chunk) =>
-      translateChunkToAnthropicEvents(chunk, streamState, new Map()),
+      translateChunkToAnthropicEvents(
+        chunk,
+        streamState,
+        createToolNameContext(),
+      ),
     )
 
     // These tests will fail until the stub is implemented

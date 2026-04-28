@@ -25,6 +25,15 @@ export async function handleCompletion(c: Context) {
   const startTime = Date.now()
 
   let payload = await c.req.json<ChatCompletionsPayload>()
+  payload = {
+    ...payload,
+    messages: payload.messages.map((msg) => {
+      const { reasoning_text: _, ...clean } = msg as typeof msg & {
+        reasoning_text?: unknown
+      }
+      return clean
+    }),
+  }
   const payloadJson = JSON.stringify(payload)
   consola.debug("Request payload:", payloadJson.slice(-400))
 

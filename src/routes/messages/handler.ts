@@ -24,7 +24,7 @@ import {
   type AnthropicStreamState,
 } from "./anthropic-types"
 import {
-  type ToolNameMap,
+  type ToolNameContext,
   translateToAnthropic,
   translateToOpenAI,
 } from "./non-stream-translation"
@@ -60,7 +60,7 @@ export async function handleCompletion(c: Context) {
   c.set("logRequestSizeKb" as never, (payloadJson.length / 1024) as never)
   c.set("logModel" as never, anthropicPayload.model as never)
 
-  const { openAIPayload, toolNameMap } = translateToOpenAI(anthropicPayload)
+  const { openAIPayload, toolNameCtx } = translateToOpenAI(anthropicPayload)
   consola.debug(
     "Translated OpenAI request payload:",
     JSON.stringify(openAIPayload),
@@ -101,15 +101,15 @@ export async function handleCompletion(c: Context) {
   }
 
   if (isNonStreaming(result))
-    return handleNonStreaming(result, logBase, toolNameMap)
+    return handleNonStreaming(result, logBase, toolNameCtx)
 
-  return handleStreamingCompletion(result, logBase, toolNameMap)
+  return handleStreamingCompletion(result, logBase, toolNameCtx)
 }
 
 function handleStreamingCompletion(
   result: AsyncGenerator<ServerSentEventMessage, void, unknown>,
   logBase: LogBase,
-  toolNameMap: ToolNameMap,
+  toolNameCtx: ToolNameContext,
 ) {
   const {
     startTime,
@@ -129,7 +129,7 @@ function handleStreamingCompletion(
     c,
     async (stream) => {
       const { inputTokens, outputTokens, finishReason, accumulatedContent } =
-        await consumeAnthropicStream(result, stream, toolNameMap)
+        await consumeAnthropicStream(result, stream, toolNameCtx)
       const durationMs = Date.now() - startTime
       insertLog({
         timestamp: startTime,
@@ -197,13 +197,13 @@ function handleNonStreaming(
     requestSizeKb,
     c,
   }: LogBase,
-  toolNameMap: ToolNameMap,
+  toolNameCtx: ToolNameContext,
 ) {
   consola.debug(
     "Non-streaming response from Copilot:",
     JSON.stringify(result).slice(-400),
   )
-  const anthropicResponse = translateToAnthropic(result, toolNameMap)
+  const anthropicResponse = translateToAnthropic(result, toolNameCtx)
   consola.debug(
     "Translated Anthropic response:",
     JSON.stringify(anthropicResponse),
@@ -249,7 +249,7 @@ function handleNonStreaming(
 async function consumeAnthropicStream(
   result: AsyncGenerator<ServerSentEventMessage, void, unknown>,
   stream: { writeSSE: (msg: { event: string; data: string }) => Promise<void> },
-  toolNameMap: ToolNameMap,
+  toolNameCtx: ToolNameContext,
 ): Promise<{
   inputTokens: number
   outputTokens: number
@@ -280,7 +280,7 @@ async function consumeAnthropicStream(
     const events = translateChunkToAnthropicEvents(
       chunk,
       streamState,
-      toolNameMap,
+      toolNameCtx,
     )
 
     for (const event of events) {

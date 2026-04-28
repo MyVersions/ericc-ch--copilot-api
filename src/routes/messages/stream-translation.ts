@@ -4,7 +4,7 @@ import {
   type AnthropicStreamEventData,
   type AnthropicStreamState,
 } from "./anthropic-types"
-import { type ToolNameMap, restoreToolName } from "./non-stream-translation"
+import { type ToolNameContext, restoreToolName } from "./non-stream-translation"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
 
 function isToolBlockOpen(state: AnthropicStreamState): boolean {
@@ -21,7 +21,7 @@ function isToolBlockOpen(state: AnthropicStreamState): boolean {
 export function translateChunkToAnthropicEvents(
   chunk: ChatCompletionChunk,
   state: AnthropicStreamState,
-  toolNameMap: ToolNameMap,
+  toolNameMap: ToolNameContext,
 ): Array<AnthropicStreamEventData> {
   const events: Array<AnthropicStreamEventData> = []
 
